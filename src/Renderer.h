@@ -5,6 +5,8 @@
 #include "Scene.h"
 #include "Camera.h"
 
+#include "shaderprogram/BackgroundShader.h"
+
 class Renderer {
 public:
     Renderer() = delete;
@@ -16,8 +18,9 @@ public:
     void CreateRenderPass();
 
     void CreateDescriptors();
+    void CreatePipelines();
 
-    void CreateGraphicsPipeline();
+    //void CreateGraphicsPipeline();
     void CreateComputePipeline();
 
     void CreateFrameResources();
@@ -41,10 +44,11 @@ private:
 
     VkRenderPass renderPass;
 
-    VkPipelineLayout graphicsPipelineLayout;
+    BackgroundShader* backgroundShader;
+    //VkPipelineLayout graphicsPipelineLayout;
     VkPipelineLayout computePipelineLayout;
 
-    VkPipeline graphicsPipeline;
+    //VkPipeline graphicsPipeline;
     VkPipeline computePipeline;
 
     std::vector<VkImageView> imageViews;
