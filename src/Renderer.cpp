@@ -19,14 +19,11 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
     CreateCommandPools();
     CreateRenderPass();
 
+    // TODO: custom pipeline creation here
     CreateDescriptors();
     CreatePipelines();
 
     CreateFrameResources();
-
-    //CreateGraphicsPipeline();
-    //CreateGrassPipeline();
-    CreateComputePipeline();
 
     RecordCommandBuffers();
     RecordComputeCommandBuffer();
@@ -133,49 +130,6 @@ void Renderer::CreatePipelines() {
     backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
 }
 
-void Renderer::CreateComputePipeline() {
-    // Set up programmable shaders
-    VkShaderModule computeShaderModule = ShaderModule::Create("shaders/compute.comp.spv", logicalDevice);
-
-    VkPipelineShaderStageCreateInfo computeShaderStageInfo = {};
-    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    computeShaderStageInfo.module = computeShaderModule;
-    computeShaderStageInfo.pName = "main";
-
-    // TODO: Add the compute dsecriptor set layout you create to this list
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::cameraDescriptorSetLayout, Descriptor::timeDescriptorSetLayout };
-
-    // Create pipeline layout
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = 0;
-
-    if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create pipeline layout");
-    }
-
-    // Create compute pipeline
-    VkComputePipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage = computeShaderStageInfo;
-    pipelineInfo.layout = computePipelineLayout;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.flags = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-    pipelineInfo.basePipelineIndex = -1;
-
-    if (vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create compute pipeline");
-    }
-
-    // No need for shader modules anymore
-    vkDestroyShaderModule(logicalDevice, computeShaderModule, nullptr);
-}
-
 void Renderer::CreateFrameResources() {
     imageViews.resize(swapChain->GetCount());
 
@@ -270,7 +224,9 @@ void Renderer::RecreateFrameResources() {
 
     DestroyFrameResources();
     CreateFrameResources();
+
     backgroundShader->CreateShaderProgram();
+
     RecordCommandBuffers();
 }
 
@@ -297,13 +253,13 @@ void Renderer::RecordComputeCommandBuffer() {
     }
 
     // Bind to the compute pipeline
-    vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+    //vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
     // Bind camera descriptor set
-    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
+    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
 
     // Bind descriptor set for time uniforms
-    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
+    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
 
     // TODO: For each group of blades bind its descriptor set and dispatch
 
@@ -385,7 +341,7 @@ void Renderer::RecordCommandBuffers() {
 
 void Renderer::Frame() {
 
-    VkSubmitInfo computeSubmitInfo = {};
+    /*VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
@@ -393,7 +349,7 @@ void Renderer::Frame() {
 
     if (vkQueueSubmit(device->GetQueue(QueueFlags::Compute), 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer");
-    }
+    }*/
 
     if (!swapChain->Acquire()) {
         RecreateFrameResources();
@@ -430,13 +386,10 @@ Renderer::~Renderer() {
     vkDeviceWaitIdle(logicalDevice);
 
     // TODO: destroy any resources you created
-
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
     vkFreeCommandBuffers(logicalDevice, computeCommandPool, 1, &computeCommandBuffer);
-    
-    vkDestroyPipeline(logicalDevice, computePipeline, nullptr);
-    vkDestroyPipelineLayout(logicalDevice, computePipelineLayout, nullptr);
 
+    // Destroy descrioptors and shader programs
     Descriptor::CleanUp(logicalDevice);
     backgroundShader->CleanUp();
 

@@ -20,9 +20,6 @@ public:
     void CreateDescriptors();
     void CreatePipelines();
 
-    //void CreateGraphicsPipeline();
-    void CreateComputePipeline();
-
     void CreateFrameResources();
     void DestroyFrameResources();
     void RecreateFrameResources();
@@ -44,13 +41,10 @@ private:
 
     VkRenderPass renderPass;
 
+    // --- Shader programs ---
     BackgroundShader* backgroundShader;
-    //VkPipelineLayout graphicsPipelineLayout;
-    VkPipelineLayout computePipelineLayout;
 
-    //VkPipeline graphicsPipeline;
-    VkPipeline computePipeline;
-
+    // --- Frame resources ---
     std::vector<VkImageView> imageViews;
 
     VkImage depthImage;
@@ -59,6 +53,7 @@ private:
 
     std::vector<VkFramebuffer> framebuffers;
 
+    // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
     VkCommandBuffer computeCommandBuffer;
 };
