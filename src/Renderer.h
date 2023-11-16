@@ -28,6 +28,7 @@ public:
     void RecordCommandBuffers();
     void RecordComputeCommandBuffer();
 
+    void UpdateUniformBuffers();
     void Frame();
 
 private:
@@ -47,10 +48,9 @@ private:
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
+    std::vector<VkFramebuffer> framebuffers;
 
     Texture* depthTexture;
-
-    std::vector<VkFramebuffer> framebuffers;
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;

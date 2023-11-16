@@ -13,14 +13,21 @@ VkDescriptorSet Descriptor::timeDescriptorSet;
 
 void Descriptor::CreateCameraDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
-    VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding curLayoutBinding = {};
+    curLayoutBinding.binding = 0;
+    curLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    curLayoutBinding.descriptorCount = 1;
+    curLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    curLayoutBinding.pImmutableSamplers = nullptr;
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding };
+    VkDescriptorSetLayoutBinding prevLayoutBinding = {};
+    prevLayoutBinding.binding = 1;
+    prevLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    prevLayoutBinding.descriptorCount = 1;
+    prevLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    prevLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { curLayoutBinding, prevLayoutBinding };
 
     // Create the descriptor set layout
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -59,10 +66,13 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     // Describe which descriptor types that the descriptor sets will contain
     std::vector<VkDescriptorPoolSize> poolSizes = {
         // Camera
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER , 1},
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+
+        // Camera - Prev
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 
         // Time (compute)
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER , 1 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 
         // TODO: Add any additional types and counts of descriptors you will need to allocate
     };
@@ -71,7 +81,7 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 5;
+    poolInfo.maxSets = 10;
 
     if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor pool");
@@ -98,7 +108,12 @@ void Descriptor::CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camer
     cameraBufferInfo.offset = 0;
     cameraBufferInfo.range = sizeof(CameraBufferObject);
 
-    std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+    VkDescriptorBufferInfo prevCameraBufferInfo = {};
+    prevCameraBufferInfo.buffer = camera->GetPrevBuffer();
+    prevCameraBufferInfo.offset = 0;
+    prevCameraBufferInfo.range = sizeof(CameraBufferObject);
+
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = cameraDescriptorSet;
     descriptorWrites[0].dstBinding = 0;
@@ -108,6 +123,16 @@ void Descriptor::CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camer
     descriptorWrites[0].pBufferInfo = &cameraBufferInfo;
     descriptorWrites[0].pImageInfo = nullptr;
     descriptorWrites[0].pTexelBufferView = nullptr;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = cameraDescriptorSet;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pBufferInfo = &prevCameraBufferInfo;
+    descriptorWrites[1].pImageInfo = nullptr;
+    descriptorWrites[1].pTexelBufferView = nullptr;
 
     // Update descriptor sets
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);

@@ -305,7 +305,6 @@ void Renderer::RecordCommandBuffers() {
             vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
             vkCmdBindIndexBuffer(commandBuffers[i], scene->GetModels()[j]->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-            
             // Bind the descriptor set for each model
             //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 1, 1, &modelDescriptorSets[j], 0, nullptr);
 
@@ -322,6 +321,11 @@ void Renderer::RecordCommandBuffers() {
             throw std::runtime_error("Failed to record command buffer");
         }
     }
+}
+
+void Renderer::UpdateUniformBuffers() {
+    scene->UpdateTime(); // time
+    camera->UpdatePrevBuffer(); // camera prev
 }
 
 void Renderer::Frame() {
