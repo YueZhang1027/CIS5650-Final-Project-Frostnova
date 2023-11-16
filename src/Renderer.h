@@ -5,6 +5,7 @@
 #include "Scene.h"
 #include "Camera.h"
 
+#include "Image.h"
 #include "shaderprogram/BackgroundShader.h"
 
 class Renderer {
@@ -47,9 +48,7 @@ private:
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
 
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
+    Texture* depthTexture;
 
     std::vector<VkFramebuffer> framebuffers;
 

@@ -3,7 +3,6 @@
 #include "ShaderModule.h"
 #include "Vertex.h"
 #include "Camera.h"
-#include "Image.h"
 
 #include "Descriptor.h"
 
@@ -133,6 +132,12 @@ void Renderer::CreatePipelines() {
 void Renderer::CreateFrameResources() {
     imageViews.resize(swapChain->GetCount());
 
+    // CREATE CUSTOM TEXTURES
+    depthTexture = new Texture();
+    Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), depthTexture); // Special for depth texture
+
+
+
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
         VkImageViewCreateInfo createInfo = {};
@@ -161,31 +166,13 @@ void Renderer::CreateFrameResources() {
             throw std::runtime_error("Failed to create image views");
         }
     }
-
-    VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    // CREATE DEPTH IMAGE
-    Image::Create(device,
-        swapChain->GetVkExtent().width,
-        swapChain->GetVkExtent().height,
-        depthFormat,
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        depthImage,
-        depthImageMemory
-    );
-
-    depthImageView = Image::CreateView(device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-    
-    // Transition the image for use as depth-stencil
-    Image::TransitionLayout(device, graphicsCommandPool, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     
     // CREATE FRAMEBUFFERS
     framebuffers.resize(swapChain->GetCount());
     for (size_t i = 0; i < swapChain->GetCount(); i++) {
         std::vector<VkImageView> attachments = {
             imageViews[i],
-            depthImageView
+            depthTexture->imageView
         };
 
         VkFramebufferCreateInfo framebufferInfo = {};
@@ -209,9 +196,7 @@ void Renderer::DestroyFrameResources() {
         vkDestroyImageView(logicalDevice, imageViews[i], nullptr);
     }
 
-    vkDestroyImageView(logicalDevice, depthImageView, nullptr);
-    vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
-    vkDestroyImage(logicalDevice, depthImage, nullptr);
+    depthTexture->CleanUp(logicalDevice);
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);

@@ -235,3 +235,37 @@ void Image::FromFile(Device* device, VkCommandPool commandPool, const char* path
     vkDestroyBuffer(device->GetVkDevice(), stagingBuffer, nullptr);
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
 }
+
+// TODO: Check
+void Image::ForStorage(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+    int texWidth = extent.width, texHeight = extent.height, texChannels = 4;
+
+    VkDeviceSize imageSize = texWidth * texHeight * texChannels;
+
+    // Create Vulkan image
+    Image::Create(device, texWidth, texHeight, format, tiling, VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage, properties, image, imageMemory);
+
+    // Transition texture image for shader access
+    Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_UNDEFINED, layout);
+}
+
+void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent, Texture* texture)
+{
+    VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    // CREATE DEPTH IMAGE
+    Image::Create(device,
+        extent.width,
+        extent.height,
+        depthFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture->image,
+        texture->imageMemory
+    );
+
+    texture->imageView = Image::CreateView(device, texture->image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    // Transition the image for use as depth-stencil
+    Image::TransitionLayout(device, graphicsCommandPool, texture->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+}
