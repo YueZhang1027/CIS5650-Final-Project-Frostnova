@@ -3,7 +3,6 @@
 #include "ShaderModule.h"
 #include "Vertex.h"
 #include "Camera.h"
-#include "Image.h"
 
 #include "Descriptor.h"
 
@@ -20,10 +19,9 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
     CreateRenderPass();
 
     // TODO: custom pipeline creation here
+    CreateFrameResources();
     CreateDescriptors();
     CreatePipelines();
-
-    CreateFrameResources();
 
     RecordCommandBuffers();
     RecordComputeCommandBuffer();
@@ -117,21 +115,36 @@ void Renderer::CreateRenderPass() {
 }
 
 void Renderer::CreateDescriptors() {
+    Descriptor::CreateImageStorageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateTimeDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
     Descriptor::CreateTimeDescriptorSet(logicalDevice, scene);
 }
 
 void Renderer::CreatePipelines() {
     backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
+    reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
     imageViews.resize(swapChain->GetCount());
+
+    // CREATE CUSTOM TEXTURES
+    depthTexture = new Texture();
+    Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), depthTexture); // Special for depth texture
+
+    // Two ping pong images for reprojection and compute
+    imageCurTexture = new Texture();
+    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imageCurTexture);
+
+    imagePrevTexture = new Texture();
+    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imagePrevTexture);
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -161,31 +174,13 @@ void Renderer::CreateFrameResources() {
             throw std::runtime_error("Failed to create image views");
         }
     }
-
-    VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    // CREATE DEPTH IMAGE
-    Image::Create(device,
-        swapChain->GetVkExtent().width,
-        swapChain->GetVkExtent().height,
-        depthFormat,
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        depthImage,
-        depthImageMemory
-    );
-
-    depthImageView = Image::CreateView(device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-    
-    // Transition the image for use as depth-stencil
-    Image::TransitionLayout(device, graphicsCommandPool, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     
     // CREATE FRAMEBUFFERS
     framebuffers.resize(swapChain->GetCount());
     for (size_t i = 0; i < swapChain->GetCount(); i++) {
         std::vector<VkImageView> attachments = {
             imageViews[i],
-            depthImageView
+            depthTexture->imageView
         };
 
         VkFramebufferCreateInfo framebufferInfo = {};
@@ -209,9 +204,12 @@ void Renderer::DestroyFrameResources() {
         vkDestroyImageView(logicalDevice, imageViews[i], nullptr);
     }
 
-    vkDestroyImageView(logicalDevice, depthImageView, nullptr);
-    vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
-    vkDestroyImage(logicalDevice, depthImage, nullptr);
+    depthTexture->CleanUp(logicalDevice);
+    delete depthTexture;
+    imageCurTexture->CleanUp(logicalDevice);
+    delete imageCurTexture;
+    imagePrevTexture->CleanUp(logicalDevice);
+    delete imagePrevTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -220,12 +218,14 @@ void Renderer::DestroyFrameResources() {
 
 void Renderer::RecreateFrameResources() {
     backgroundShader->CleanUp();
+    reprojectShader->CleanUp();
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     DestroyFrameResources();
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
+    reprojectShader->CreateShaderProgram();
 
     RecordCommandBuffers();
 }
@@ -320,7 +320,6 @@ void Renderer::RecordCommandBuffers() {
             vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
             vkCmdBindIndexBuffer(commandBuffers[i], scene->GetModels()[j]->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-            
             // Bind the descriptor set for each model
             //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 1, 1, &modelDescriptorSets[j], 0, nullptr);
 
@@ -337,6 +336,11 @@ void Renderer::RecordCommandBuffers() {
             throw std::runtime_error("Failed to record command buffer");
         }
     }
+}
+
+void Renderer::UpdateUniformBuffers() {
+    scene->UpdateTime(); // time
+    camera->UpdatePrevBuffer(); // camera prev
 }
 
 void Renderer::Frame() {
@@ -391,7 +395,11 @@ Renderer::~Renderer() {
 
     // Destroy descrioptors and shader programs
     Descriptor::CleanUp(logicalDevice);
+
     backgroundShader->CleanUp();
+    delete backgroundShader;
+    reprojectShader->CleanUp();
+    delete reprojectShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();

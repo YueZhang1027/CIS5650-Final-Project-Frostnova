@@ -1,8 +1,19 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-//layout(set = 1, binding = 1) uniform sampler2D texSampler;
-layout(set = 0, binding = 0) uniform Time {
+layout(set = 0, binding = 0) uniform CameraBufferObject {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPos;
+} camera;
+
+layout(set = 0, binding = 1) uniform CameraBufferObjectPrev {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPos;
+} cameraPrev;
+
+layout(set = 1, binding = 0) uniform Time {
     float deltaTime;
     float totalTime;
 };

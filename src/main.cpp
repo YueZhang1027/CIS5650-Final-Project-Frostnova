@@ -126,14 +126,12 @@ int main() {
 
     while (!ShouldQuit()) {
         glfwPollEvents();
-        scene->UpdateTime();
+        renderer->UpdateUniformBuffers();
         renderer->Frame();
+        // TODO: update buffers
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());
-
-   /* vkDestroyImage(device->GetVkDevice(), grassImage, nullptr);
-    vkFreeMemory(device->GetVkDevice(), grassImageMemory, nullptr);*/
 
     delete scene;
     delete plane;

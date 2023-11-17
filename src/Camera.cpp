@@ -22,6 +22,17 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     BufferUtils::CreateBuffer(device, sizeof(CameraBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, bufferMemory);
     vkMapMemory(device->GetVkDevice(), bufferMemory, 0, sizeof(CameraBufferObject), 0, &mappedData);
     memcpy(mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+
+    // Create a second buffer for the previous frame
+    prevCameraBufferObject.CopyFrom(cameraBufferObject);
+    BufferUtils::CreateBuffer(device, sizeof(CameraBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, prevBuffer, prevBufferMemory);
+    vkMapMemory(device->GetVkDevice(), prevBufferMemory, 0, sizeof(CameraBufferObject), 0, &prevMappedData);
+    memcpy(prevMappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
+}
+
+VkBuffer Camera::GetPrevBuffer() const
+{
+    return prevBuffer;
 }
 
 VkBuffer Camera::GetBuffer() const {
@@ -43,6 +54,11 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     cameraBufferObject.cameraPosition = glm::vec4(finalTransform[0][3], finalTransform[1][3], finalTransform[2][3], 1.0f);
 
     memcpy(mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+}
+
+void Camera::UpdatePrevBuffer() {
+    prevCameraBufferObject.CopyFrom(cameraBufferObject);
+    memcpy(prevMappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
 }
 
 Camera::~Camera() {

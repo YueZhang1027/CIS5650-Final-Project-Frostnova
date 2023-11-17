@@ -6,8 +6,7 @@ BackgroundShader::BackgroundShader(Device* device, SwapChain* swapchain, VkRende
     CreateShaderProgram();
 }
 
-void BackgroundShader::CreateShaderProgram()
-{
+void BackgroundShader::CreateShaderProgram() {
     VkShaderModule vertShaderModule = ShaderModule::Create("shaders/graphics.vert.spv", device->GetVkDevice());
     VkShaderModule fragShaderModule = ShaderModule::Create("shaders/graphics.frag.spv", device->GetVkDevice());
 
@@ -125,7 +124,7 @@ void BackgroundShader::CreateShaderProgram()
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::timeDescriptorSetLayout }; // cameraDescriptorSetLayout, modelDescriptorSetLayout 
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::cameraDescriptorSetLayout, Descriptor::timeDescriptorSetLayout }; // cameraDescriptorSetLayout, modelDescriptorSetLayout 
 
     // Pipeline layout: used to specify uniform values
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -169,9 +168,7 @@ void BackgroundShader::CreateShaderProgram()
 void BackgroundShader::BindShaderProgram(VkCommandBuffer& commandBuffer)
 {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
-}
 
-void BackgroundShader::CleanUniforms()
-{
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
 }

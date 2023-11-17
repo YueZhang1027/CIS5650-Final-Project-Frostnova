@@ -8,7 +8,5 @@ public:
 	~BackgroundShader() { }
 
 	void CreateShaderProgram() override;
-	void BindShaderProgram(VkCommandBuffer& commandBuffer) override;
-protected:
-	void CleanUniforms() override;
+	void BindShaderProgram(VkCommandBuffer& commandBuffer) override; // Check pipeline layout
 };

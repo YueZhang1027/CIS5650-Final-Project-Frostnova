@@ -5,7 +5,9 @@
 #include "Scene.h"
 #include "Camera.h"
 
+#include "Image.h"
 #include "shaderprogram/BackgroundShader.h"
+#include "shaderprogram/ReprojectShader.h"
 
 class Renderer {
 public:
@@ -27,6 +29,7 @@ public:
     void RecordCommandBuffers();
     void RecordComputeCommandBuffer();
 
+    void UpdateUniformBuffers();
     void Frame();
 
 private:
@@ -43,15 +46,15 @@ private:
 
     // --- Shader programs ---
     BackgroundShader* backgroundShader;
+    ReprojectShader* reprojectShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
-
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
-
     std::vector<VkFramebuffer> framebuffers;
+
+    Texture* depthTexture;
+    Texture* imageCurTexture;
+    Texture* imagePrevTexture;
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
