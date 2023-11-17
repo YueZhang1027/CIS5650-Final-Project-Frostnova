@@ -51,6 +51,8 @@ private:
     std::vector<VkFramebuffer> framebuffers;
 
     Texture* depthTexture;
+    Texture* imageCurTexture;
+    Texture* imagePrevTexture;
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;

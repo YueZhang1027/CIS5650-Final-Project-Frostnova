@@ -150,6 +150,33 @@ VkImageView Image::CreateView(Device* device, VkImage image, VkFormat format, Vk
     return imageView;
 }
 
+VkSampler Image::CreateSampler(Device* device) {
+    VkSamplerCreateInfo samplerInfo = {};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = 16;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    VkSampler textureSampler;
+    if (vkCreateSampler(device->GetVkDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
+    return textureSampler;
+}
+
 void Image::CopyFromBuffer(Device* device, VkCommandPool commandPool, VkBuffer buffer, VkImage& image, uint32_t width, uint32_t height) {
     // Specify which part of the buffer is going to be copied to which part of the image
     VkBufferImageCopy region = {};
@@ -236,21 +263,7 @@ void Image::FromFile(Device* device, VkCommandPool commandPool, const char* path
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
 }
 
-// TODO: Check
-void Image::ForStorage(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-    int texWidth = extent.width, texHeight = extent.height, texChannels = 4;
-
-    VkDeviceSize imageSize = texWidth * texHeight * texChannels;
-
-    // Create Vulkan image
-    Image::Create(device, texWidth, texHeight, format, tiling, VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage, properties, image, imageMemory);
-
-    // Transition texture image for shader access
-    Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_UNDEFINED, layout);
-}
-
-void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent, Texture* texture)
-{
+void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent, Texture* texture) {
     VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     // CREATE DEPTH IMAGE
     Image::Create(device,
@@ -268,4 +281,25 @@ void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool
 
     // Transition the image for use as depth-stencil
     Image::TransitionLayout(device, graphicsCommandPool, texture->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+}
+
+void Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, Texture* texture) {
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+    int texWidth = extent.width, texHeight = extent.height, texChannels = 4;
+    VkDeviceSize imageSize = texWidth * texHeight * texChannels;
+
+    Image::Create(device, 
+        texWidth, 
+        texHeight, 
+        imageFormat, 
+        VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        texture->image, 
+        texture->imageMemory);
+
+    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL); // TODO: check new layout
+
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    texture->sampler = Image::CreateSampler(device);
 }

@@ -16,7 +16,7 @@ public:
 	//virtual void UnbindShaderProgram(VkCommandBuffer& commandBuffer) = 0;
 	//virtual void Recreate() = 0;
 protected:
-	virtual void CleanUniforms() = 0;
+	//virtual void CleanUniforms() = 0;
 protected:
 	VkPipelineLayout pipelineLayout;
 	VkPipeline pipeline;

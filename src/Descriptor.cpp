@@ -5,11 +5,36 @@
 
 VkDescriptorSetLayout Descriptor::cameraDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::timeDescriptorSetLayout;
+VkDescriptorSetLayout Descriptor::imageStorageDescriptorSetLayout;
 
 VkDescriptorPool Descriptor::descriptorPool;
 
+VkDescriptorSet Descriptor::imageCurDescriptorSet;
+VkDescriptorSet Descriptor::imagePrevDescriptorSet;
 VkDescriptorSet Descriptor::cameraDescriptorSet;
 VkDescriptorSet Descriptor::timeDescriptorSet;
+
+void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
+    // Describe the binding of the descriptor set layout
+	VkDescriptorSetLayoutBinding imageLayoutBinding = {};
+	imageLayoutBinding.binding = 0;
+	imageLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	imageLayoutBinding.descriptorCount = 1;
+	imageLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	imageLayoutBinding.pImmutableSamplers = nullptr;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { imageLayoutBinding };
+
+	// Create the descriptor set layout
+	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &imageStorageDescriptorSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create descriptor set layout: Image Storage");
+	}
+}
 
 void Descriptor::CreateCameraDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
@@ -65,13 +90,13 @@ void Descriptor::CreateTimeDescriptorSetLayout(VkDevice logicalDevice) {
 void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     // Describe which descriptor types that the descriptor sets will contain
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        // Camera
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+        // Image Storage (prev, cur)
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
 
-        // Camera - Prev
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+        // Camera, PrevCamera
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
 
-        // Time (compute)
+        // Time
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 
         // TODO: Add any additional types and counts of descriptors you will need to allocate
@@ -86,6 +111,41 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor pool");
     }
+}
+
+void Descriptor::CreateImageStorageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet) {
+    // Describe the desciptor set
+	VkDescriptorSetLayout layouts[] = { imageStorageDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	// Allocate descriptor sets
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &imageDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate descriptor set");
+	}
+
+	// Configure the descriptors to refer to buffers
+	VkDescriptorImageInfo imageInfo = {};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	imageInfo.imageView = texture->imageView;
+	imageInfo.sampler = texture->sampler;
+
+	std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = imageDescriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = nullptr;
+	descriptorWrites[0].pImageInfo = &imageInfo;
+	descriptorWrites[0].pTexelBufferView = nullptr;
+
+	// Update descriptor sets
+	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
 void Descriptor::CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera) {
@@ -176,6 +236,7 @@ void Descriptor::CreateTimeDescriptorSet(VkDevice logicalDevice, Scene* scene) {
 void Descriptor::CleanUp(VkDevice logicalDevice) {
     vkDestroyDescriptorSetLayout(logicalDevice, cameraDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, timeDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, imageStorageDescriptorSetLayout, nullptr);
 
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 }

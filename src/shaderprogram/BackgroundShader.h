@@ -9,6 +9,4 @@ public:
 
 	void CreateShaderProgram() override;
 	void BindShaderProgram(VkCommandBuffer& commandBuffer) override; // Check pipeline layout
-protected:
-	void CleanUniforms() override;
 };

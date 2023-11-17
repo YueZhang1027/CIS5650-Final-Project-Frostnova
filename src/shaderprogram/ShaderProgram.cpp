@@ -10,6 +10,4 @@ ShaderProgram::ShaderProgram(Device* device, SwapChain* swapchain, VkRenderPass*
 void ShaderProgram::CleanUp() {
 	vkDestroyPipelineLayout(device->GetVkDevice(), pipelineLayout, nullptr);
 	vkDestroyPipeline(device->GetVkDevice(), pipeline, nullptr);
-
-	CleanUniforms();
 }

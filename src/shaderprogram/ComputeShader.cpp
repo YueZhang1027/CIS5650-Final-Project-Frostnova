@@ -12,7 +12,3 @@ void ComputeShader::CreateShaderProgram()
 void ComputeShader::BindShaderProgram(VkCommandBuffer& commandBuffer)
 {
 }
-
-void ComputeShader::CleanUniforms()
-{
-}

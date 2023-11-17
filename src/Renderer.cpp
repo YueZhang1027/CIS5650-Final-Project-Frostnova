@@ -19,10 +19,9 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
     CreateRenderPass();
 
     // TODO: custom pipeline creation here
+    CreateFrameResources();
     CreateDescriptors();
     CreatePipelines();
-
-    CreateFrameResources();
 
     RecordCommandBuffers();
     RecordComputeCommandBuffer();
@@ -116,17 +115,21 @@ void Renderer::CreateRenderPass() {
 }
 
 void Renderer::CreateDescriptors() {
+    Descriptor::CreateImageStorageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateTimeDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
     Descriptor::CreateTimeDescriptorSet(logicalDevice, scene);
 }
 
 void Renderer::CreatePipelines() {
     backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
+    
 }
 
 void Renderer::CreateFrameResources() {
@@ -136,7 +139,12 @@ void Renderer::CreateFrameResources() {
     depthTexture = new Texture();
     Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), depthTexture); // Special for depth texture
 
+    // Two ping pong images for reprojection and compute
+    imageCurTexture = new Texture();
+    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imageCurTexture);
 
+    imagePrevTexture = new Texture();
+    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imagePrevTexture);
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -197,6 +205,11 @@ void Renderer::DestroyFrameResources() {
     }
 
     depthTexture->CleanUp(logicalDevice);
+    delete depthTexture;
+    imageCurTexture->CleanUp(logicalDevice);
+    delete imageCurTexture;
+    imagePrevTexture->CleanUp(logicalDevice);
+    delete imagePrevTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -380,7 +393,9 @@ Renderer::~Renderer() {
 
     // Destroy descrioptors and shader programs
     Descriptor::CleanUp(logicalDevice);
+
     backgroundShader->CleanUp();
+    delete backgroundShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();

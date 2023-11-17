@@ -6,8 +6,7 @@ BackgroundShader::BackgroundShader(Device* device, SwapChain* swapchain, VkRende
     CreateShaderProgram();
 }
 
-void BackgroundShader::CreateShaderProgram()
-{
+void BackgroundShader::CreateShaderProgram() {
     VkShaderModule vertShaderModule = ShaderModule::Create("shaders/graphics.vert.spv", device->GetVkDevice());
     VkShaderModule fragShaderModule = ShaderModule::Create("shaders/graphics.frag.spv", device->GetVkDevice());
 
@@ -172,8 +171,4 @@ void BackgroundShader::BindShaderProgram(VkCommandBuffer& commandBuffer)
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
-}
-
-void BackgroundShader::CleanUniforms()
-{
 }
