@@ -218,27 +218,28 @@ void Renderer::DestroyFrameResources() {
 
 void Renderer::RecreateFrameResources() {
     backgroundShader->CleanUp();
-    reprojectShader->CleanUp();
+    //reprojectShader->CleanUp();
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     DestroyFrameResources();
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
-    reprojectShader->CreateShaderProgram();
+    //reprojectShader->CreateShaderProgram();
 
     RecordCommandBuffers();
 }
 
 void Renderer::RecordComputeCommandBuffer() {
+    computeCommandBuffers.resize(2);
     // Specify the command pool and number of buffers to allocate
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = computeCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, &computeCommandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers");
     }
 
@@ -247,25 +248,25 @@ void Renderer::RecordComputeCommandBuffer() {
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
-    // ~ Start recording ~
-    if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin recording compute command buffer");
-    }
+    // Ping pong between the two buffers
+    for (int i = 0; i < 2; ++i) {
+        // ~ Start recording ~
+        if (vkBeginCommandBuffer(computeCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin recording compute command buffer");
+        }
 
-    // Bind to the compute pipeline
-    //vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+        // Reproject
+        reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
+        const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
 
-    // Bind camera descriptor set
-    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
-
-    // Bind descriptor set for time uniforms
-    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
-
-    // TODO: For each group of blades bind its descriptor set and dispatch
-
-    // ~ End recording ~
-    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record compute command buffer");
+        // ~ End recording ~
+        if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record compute command buffer");
+        }
     }
 }
 
@@ -391,7 +392,7 @@ Renderer::~Renderer() {
 
     // TODO: destroy any resources you created
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-    vkFreeCommandBuffers(logicalDevice, computeCommandPool, 1, &computeCommandBuffer);
+    vkFreeCommandBuffers(logicalDevice, computeCommandPool, static_cast<uint32_t>(computeCommandBuffers.size()), computeCommandBuffers.data());
 
     // Destroy descrioptors and shader programs
     Descriptor::CleanUp(logicalDevice);

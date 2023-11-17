@@ -58,5 +58,5 @@ private:
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
-    VkCommandBuffer computeCommandBuffer;
+    std::vector<VkCommandBuffer> computeCommandBuffers;
 };

@@ -2,6 +2,7 @@
 
 ReprojectShader::ReprojectShader(Device* device, SwapChain* swapchain, VkRenderPass* renderPass)
 	: ShaderProgram(device, swapchain, renderPass) {
+	swapBuffers = false;
 	CreateShaderProgram();
 }
 
@@ -50,5 +51,9 @@ void ReprojectShader::CreateShaderProgram() {
 
 void ReprojectShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, swapBuffers ? 1 : 0, 1, &Descriptor::imageCurDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, swapBuffers ? 0 : 1, 1, &Descriptor::imagePrevDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
+	
+	swapBuffers = !swapBuffers;
 }

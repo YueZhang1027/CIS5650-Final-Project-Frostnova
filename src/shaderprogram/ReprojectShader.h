@@ -9,4 +9,6 @@ public:
 
 	void CreateShaderProgram() override;
 	void BindShaderProgram(VkCommandBuffer& commandBuffer) override;
+protected:
+	bool swapBuffers;
 };
