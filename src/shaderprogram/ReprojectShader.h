@@ -2,7 +2,7 @@
 
 #include "ShaderProgram.h"
 
-class ReprojectShader : ShaderProgram {
+class ReprojectShader : public ShaderProgram {
 public:
 	ReprojectShader(Device* device, SwapChain* swapchain, VkRenderPass* renderPass);
 	~ReprojectShader() { }

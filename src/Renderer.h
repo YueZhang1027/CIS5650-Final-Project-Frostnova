@@ -7,6 +7,7 @@
 
 #include "Image.h"
 #include "shaderprogram/BackgroundShader.h"
+#include "shaderprogram/ReprojectShader.h"
 
 class Renderer {
 public:
@@ -45,6 +46,7 @@ private:
 
     // --- Shader programs ---
     BackgroundShader* backgroundShader;
+    ReprojectShader* reprojectShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;

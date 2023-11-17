@@ -129,7 +129,7 @@ void Renderer::CreateDescriptors() {
 
 void Renderer::CreatePipelines() {
     backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
-    
+    reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
@@ -218,12 +218,14 @@ void Renderer::DestroyFrameResources() {
 
 void Renderer::RecreateFrameResources() {
     backgroundShader->CleanUp();
+    reprojectShader->CleanUp();
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     DestroyFrameResources();
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
+    reprojectShader->CreateShaderProgram();
 
     RecordCommandBuffers();
 }
@@ -396,6 +398,8 @@ Renderer::~Renderer() {
 
     backgroundShader->CleanUp();
     delete backgroundShader;
+    reprojectShader->CleanUp();
+    delete reprojectShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();
