@@ -17,6 +17,8 @@ void ReprojectShader::CreateShaderProgram() {
 
 	// Add the compute dsecriptor set layout you create to this list
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { 
+		Descriptor::imageStorageDescriptorSetLayout,
+		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::cameraDescriptorSetLayout, 
 	};
 

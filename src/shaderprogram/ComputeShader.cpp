@@ -6,7 +6,7 @@ ComputeShader::ComputeShader(Device* device, SwapChain* swapchain, VkRenderPass*
 }
 
 void ComputeShader::CreateShaderProgram() {
-	VkShaderModule compShaderModule = ShaderModule::Create("shaders/reproject.comp.spv", device->GetVkDevice());
+	VkShaderModule compShaderModule = ShaderModule::Create("shaders/compute.comp.spv", device->GetVkDevice());
 
 	VkPipelineShaderStageCreateInfo computeShaderStageInfo = {};
 	computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -16,6 +16,8 @@ void ComputeShader::CreateShaderProgram() {
 
 	// Add the compute dsecriptor set layout you create to this list
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+		Descriptor::imageStorageDescriptorSetLayout,
+		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::cameraDescriptorSetLayout,
 	};
 
