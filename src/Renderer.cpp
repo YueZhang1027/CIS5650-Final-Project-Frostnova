@@ -17,6 +17,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     CreateCommandPools();
     CreateRenderPass();
+    CreateOffscreenRenderPass();
 
     // TODO: custom pipeline creation here
     CreateFrameResources();
@@ -113,6 +114,10 @@ void Renderer::CreateRenderPass() {
     if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create render pass");
     }
+}
+
+void Renderer::CreateOffscreenRenderPass() {
+
 }
 
 void Renderer::CreateModels() {

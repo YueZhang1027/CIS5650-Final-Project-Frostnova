@@ -27,6 +27,7 @@ public:
     void CreateCommandPools();
 
     void CreateRenderPass();
+    void CreateOffscreenRenderPass();
 
     void CreateModels();
     void CreateDescriptors();
