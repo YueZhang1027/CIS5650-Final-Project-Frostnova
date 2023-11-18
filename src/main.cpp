@@ -88,7 +88,8 @@ int main() {
 
     device = instance->CreateDevice(QueueFlagBit::GraphicsBit | QueueFlagBit::TransferBit | QueueFlagBit::ComputeBit | QueueFlagBit::PresentBit, deviceFeatures);
 
-    swapChain = device->CreateSwapChain(surface, 5);
+    swapChain = device->CreateSwapChain(surface, 5); // TODO: check numBuffers
+    // the length of the array is equal to the total number of render passes - 1
 
     camera = new Camera(device, 1920.f / 1080.f);
 
@@ -103,7 +104,6 @@ int main() {
         glfwPollEvents();
         renderer->UpdateUniformBuffers();
         renderer->Frame();
-        // TODO: update buffers
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());
