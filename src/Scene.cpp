@@ -7,14 +7,6 @@ Scene::Scene(Device* device) : device(device) {
     memcpy(mappedData, &time, sizeof(Time));
 }
 
-const std::vector<Model*>& Scene::GetModels() const {
-    return models;
-}
-
-void Scene::AddModel(Model* model) {
-    models.push_back(model);
-}
-
 void Scene::UpdateTime() {
     high_resolution_clock::time_point currentTime = high_resolution_clock::now();
     duration<float> nextDeltaTime = duration_cast<duration<float>>(currentTime - startTime);

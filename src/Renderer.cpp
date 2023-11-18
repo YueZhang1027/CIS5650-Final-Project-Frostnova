@@ -20,6 +20,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     // TODO: custom pipeline creation here
     CreateFrameResources();
+    CreateModels();
     CreateDescriptors();
     CreatePipelines();
 
@@ -112,6 +113,22 @@ void Renderer::CreateRenderPass() {
     if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create render pass");
     }
+}
+
+void Renderer::CreateModels() {
+    VkCommandPoolCreateInfo transferPoolInfo = {};
+    transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    transferPoolInfo.queueFamilyIndex = device->GetInstance()->GetQueueFamilyIndices()[QueueFlags::Transfer];
+    transferPoolInfo.flags = 0;
+
+    VkCommandPool transferCommandPool;
+    if (vkCreateCommandPool(device->GetVkDevice(), &transferPoolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create command pool");
+    }
+
+    backgroundQuad = new Model(device, transferCommandPool, ModelCreateFlags::BACKGROUND_QUAD);
+
+    vkDestroyCommandPool(device->GetVkDevice(), transferCommandPool, nullptr);
 }
 
 void Renderer::CreateDescriptors() {
@@ -313,21 +330,7 @@ void Renderer::RecordCommandBuffers() {
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         // Bind the graphics pipeline
         backgroundShader->BindShaderProgram(commandBuffers[i]);
-
-        for (uint32_t j = 0; j < scene->GetModels().size(); ++j) {
-            // Bind the vertex and index buffers
-            VkBuffer vertexBuffers[] = { scene->GetModels()[j]->getVertexBuffer() };
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(commandBuffers[i], scene->GetModels()[j]->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-            // Bind the descriptor set for each model
-            //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 1, 1, &modelDescriptorSets[j], 0, nullptr);
-
-            // Draw
-            std::vector<uint32_t> indices = scene->GetModels()[j]->getIndices();
-            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-        }
+        backgroundQuad->EnqueueDrawCommands(commandBuffers[i]);
 
         //// End render pass
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -345,16 +348,15 @@ void Renderer::UpdateUniformBuffers() {
 }
 
 void Renderer::Frame() {
-
-    /*VkSubmitInfo computeSubmitInfo = {};
+    VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+    computeSubmitInfo.pCommandBuffers = computeCommandBuffers.data();
 
     if (vkQueueSubmit(device->GetQueue(QueueFlags::Compute), 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer");
-    }*/
+    }
 
     if (!swapChain->Acquire()) {
         RecreateFrameResources();

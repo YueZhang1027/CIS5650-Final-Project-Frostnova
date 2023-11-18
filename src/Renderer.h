@@ -19,6 +19,7 @@ public:
 
     void CreateRenderPass();
 
+    void CreateModels();
     void CreateDescriptors();
     void CreatePipelines();
 
@@ -55,6 +56,9 @@ private:
     Texture* depthTexture;
     Texture* imageCurTexture;
     Texture* imagePrevTexture;
+
+    // --- Geometries ---
+    Model* backgroundQuad;
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;

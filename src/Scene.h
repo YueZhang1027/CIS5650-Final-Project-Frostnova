@@ -21,19 +21,12 @@ private:
     Time time;
     
     void* mappedData;
-
-    std::vector<Model*> models;
-
-high_resolution_clock::time_point startTime = high_resolution_clock::now();
+    high_resolution_clock::time_point startTime = high_resolution_clock::now();
 
 public:
     Scene() = delete;
     Scene(Device* device);
     ~Scene();
-
-    const std::vector<Model*>& GetModels() const;
-    
-    void AddModel(Model* model);
 
     VkBuffer GetTimeBuffer() const;
 
