@@ -11,6 +11,10 @@ struct ModelBufferObject {
     glm::mat4 modelMatrix;
 };
 
+enum ModelCreateFlags {
+	BACKGROUND_QUAD = 0,
+};
+
 class Model {
 protected:
     Device* device;
@@ -34,6 +38,7 @@ protected:
 
 public:
     Model() = delete;
+    Model(Device* device, VkCommandPool commandPool, ModelCreateFlags flag);
     Model(Device* device, VkCommandPool commandPool, const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     virtual ~Model();
 
@@ -52,4 +57,6 @@ public:
     VkBuffer GetModelBuffer() const;
     VkImageView GetTextureView() const;
     VkSampler GetTextureSampler() const;
+
+    void EnqueueDrawCommands(VkCommandBuffer& commandBuffer);
 };

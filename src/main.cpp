@@ -88,36 +88,12 @@ int main() {
 
     device = instance->CreateDevice(QueueFlagBit::GraphicsBit | QueueFlagBit::TransferBit | QueueFlagBit::ComputeBit | QueueFlagBit::PresentBit, deviceFeatures);
 
-    swapChain = device->CreateSwapChain(surface, 5);
+    swapChain = device->CreateSwapChain(surface, 5); // TODO: check numBuffers
+    // the length of the array is equal to the total number of render passes - 1
 
     camera = new Camera(device, 1920.f / 1080.f);
 
-    VkCommandPoolCreateInfo transferPoolInfo = {};
-    transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    transferPoolInfo.queueFamilyIndex = device->GetInstance()->GetQueueFamilyIndices()[QueueFlags::Transfer];
-    transferPoolInfo.flags = 0;
-
-    VkCommandPool transferCommandPool;
-    if (vkCreateCommandPool(device->GetVkDevice(), &transferPoolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create command pool");
-    }
-
-    Model* plane = new Model(device, transferCommandPool,
-        {
-            { { -1.0f,  1.0f, 0.99f }, { 1.0f, 0.0f, 0.0f },{ 1.0f, 0.0f } },
-            { {  1.0f,  1.0f, 0.99f }, { 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-            { {  1.0f, -1.0f, 0.99f }, { 0.0f, 0.0f, 1.0f },{ 0.0f, 1.0f } },
-            { { -1.0f, -1.0f, 0.99f }, { 1.0f, 1.0f, 1.0f },{ 1.0f, 1.0f } }
-        },
-        { 0, 1, 2, 2, 3, 0 }
-    );
-    //plane->SetTexture(grassImage);
-
-    vkDestroyCommandPool(device->GetVkDevice(), transferCommandPool, nullptr);
-
     Scene* scene = new Scene(device);
-    scene->AddModel(plane);
-
     renderer = new Renderer(device, swapChain, scene, camera);
 
     glfwSetWindowSizeCallback(GetGLFWWindow(), resizeCallback);
@@ -128,13 +104,11 @@ int main() {
         glfwPollEvents();
         renderer->UpdateUniformBuffers();
         renderer->Frame();
-        // TODO: update buffers
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());
 
     delete scene;
-    delete plane;
     delete camera;
     delete renderer;
     delete swapChain;

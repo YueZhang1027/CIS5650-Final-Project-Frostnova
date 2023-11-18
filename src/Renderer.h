@@ -9,6 +9,15 @@
 #include "shaderprogram/BackgroundShader.h"
 #include "shaderprogram/ReprojectShader.h"
 
+// TODO: setup 
+struct OffscreenPass {
+    VkRenderPass renderPass;
+    VkSampler sampler;
+    std::vector<VkCommandBuffer> commandBuffers;
+    VkSemaphore semaphore = VK_NULL_HANDLE;
+    std::array<VkFramebuffer, 3> framebuffers;
+};
+
 class Renderer {
 public:
     Renderer() = delete;
@@ -19,6 +28,7 @@ public:
 
     void CreateRenderPass();
 
+    void CreateModels();
     void CreateDescriptors();
     void CreatePipelines();
 
@@ -56,7 +66,10 @@ private:
     Texture* imageCurTexture;
     Texture* imagePrevTexture;
 
+    // --- Geometries ---
+    Model* backgroundQuad;
+
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
-    VkCommandBuffer computeCommandBuffer;
+    std::vector<VkCommandBuffer> computeCommandBuffers;
 };

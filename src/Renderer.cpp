@@ -20,6 +20,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     // TODO: custom pipeline creation here
     CreateFrameResources();
+    CreateModels();
     CreateDescriptors();
     CreatePipelines();
 
@@ -112,6 +113,22 @@ void Renderer::CreateRenderPass() {
     if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create render pass");
     }
+}
+
+void Renderer::CreateModels() {
+    VkCommandPoolCreateInfo transferPoolInfo = {};
+    transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    transferPoolInfo.queueFamilyIndex = device->GetInstance()->GetQueueFamilyIndices()[QueueFlags::Transfer];
+    transferPoolInfo.flags = 0;
+
+    VkCommandPool transferCommandPool;
+    if (vkCreateCommandPool(device->GetVkDevice(), &transferPoolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create command pool");
+    }
+
+    backgroundQuad = new Model(device, transferCommandPool, ModelCreateFlags::BACKGROUND_QUAD);
+
+    vkDestroyCommandPool(device->GetVkDevice(), transferCommandPool, nullptr);
 }
 
 void Renderer::CreateDescriptors() {
@@ -218,27 +235,28 @@ void Renderer::DestroyFrameResources() {
 
 void Renderer::RecreateFrameResources() {
     backgroundShader->CleanUp();
-    reprojectShader->CleanUp();
+    //reprojectShader->CleanUp();
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     DestroyFrameResources();
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
-    reprojectShader->CreateShaderProgram();
+    //reprojectShader->CreateShaderProgram();
 
     RecordCommandBuffers();
 }
 
 void Renderer::RecordComputeCommandBuffer() {
+    computeCommandBuffers.resize(2);
     // Specify the command pool and number of buffers to allocate
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = computeCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, &computeCommandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers");
     }
 
@@ -247,25 +265,25 @@ void Renderer::RecordComputeCommandBuffer() {
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
-    // ~ Start recording ~
-    if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin recording compute command buffer");
-    }
+    // Ping pong between the two buffers
+    for (int i = 0; i < 2; ++i) {
+        // ~ Start recording ~
+        if (vkBeginCommandBuffer(computeCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin recording compute command buffer");
+        }
 
-    // Bind to the compute pipeline
-    //vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+        // Reproject
+        reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
+        const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
 
-    // Bind camera descriptor set
-    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
-
-    // Bind descriptor set for time uniforms
-    //vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
-
-    // TODO: For each group of blades bind its descriptor set and dispatch
-
-    // ~ End recording ~
-    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record compute command buffer");
+        // ~ End recording ~
+        if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record compute command buffer");
+        }
     }
 }
 
@@ -312,21 +330,7 @@ void Renderer::RecordCommandBuffers() {
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         // Bind the graphics pipeline
         backgroundShader->BindShaderProgram(commandBuffers[i]);
-
-        for (uint32_t j = 0; j < scene->GetModels().size(); ++j) {
-            // Bind the vertex and index buffers
-            VkBuffer vertexBuffers[] = { scene->GetModels()[j]->getVertexBuffer() };
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(commandBuffers[i], scene->GetModels()[j]->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-            // Bind the descriptor set for each model
-            //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 1, 1, &modelDescriptorSets[j], 0, nullptr);
-
-            // Draw
-            std::vector<uint32_t> indices = scene->GetModels()[j]->getIndices();
-            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-        }
+        backgroundQuad->EnqueueDrawCommands(commandBuffers[i]);
 
         //// End render pass
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -344,16 +348,15 @@ void Renderer::UpdateUniformBuffers() {
 }
 
 void Renderer::Frame() {
-
-    /*VkSubmitInfo computeSubmitInfo = {};
+    VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+    computeSubmitInfo.pCommandBuffers = computeCommandBuffers.data();
 
     if (vkQueueSubmit(device->GetQueue(QueueFlags::Compute), 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer");
-    }*/
+    }
 
     if (!swapChain->Acquire()) {
         RecreateFrameResources();
@@ -391,7 +394,7 @@ Renderer::~Renderer() {
 
     // TODO: destroy any resources you created
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-    vkFreeCommandBuffers(logicalDevice, computeCommandPool, 1, &computeCommandBuffer);
+    vkFreeCommandBuffers(logicalDevice, computeCommandPool, static_cast<uint32_t>(computeCommandBuffers.size()), computeCommandBuffers.data());
 
     // Destroy descrioptors and shader programs
     Descriptor::CleanUp(logicalDevice);
