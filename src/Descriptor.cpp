@@ -5,6 +5,7 @@
 
 VkDescriptorSetLayout Descriptor::cameraDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::timeDescriptorSetLayout;
+VkDescriptorSetLayout Descriptor::imageDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::imageStorageDescriptorSetLayout;
 
 VkDescriptorPool Descriptor::descriptorPool;
@@ -34,6 +35,27 @@ void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
     if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &imageStorageDescriptorSetLayout) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create descriptor set layout: Image Storage");
 	}
+}
+
+void Descriptor::CreateImageDescriptorSetLayout(VkDevice logicalDevice) {
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+    samplerLayoutBinding.binding = 0;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { samplerLayoutBinding };
+
+    // Create the descriptor set layout
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &imageDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor set layout: Image");
+    }
 }
 
 void Descriptor::CreateCameraDescriptorSetLayout(VkDevice logicalDevice) {
@@ -93,6 +115,9 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
         // Image Storage (prev, cur)
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
 
+        // Image samplers: 3D hi-res, 3D low-res
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+
         // Camera, PrevCamera
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
 
@@ -106,7 +131,7 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 10;
+    poolInfo.maxSets = 10; // TODO: check
 
     if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor pool");
@@ -139,6 +164,41 @@ void Descriptor::CreateImageStorageDescriptorSet(VkDevice logicalDevice, Texture
 	descriptorWrites[0].dstBinding = 0;
 	descriptorWrites[0].dstArrayElement = 0;
 	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = nullptr;
+	descriptorWrites[0].pImageInfo = &imageInfo;
+	descriptorWrites[0].pTexelBufferView = nullptr;
+
+	// Update descriptor sets
+	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
+void Descriptor::CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet) {
+    // Describe the desciptor set
+	VkDescriptorSetLayout layouts[] = { imageDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	// Allocate descriptor sets
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &imageDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate descriptor set");
+	}
+
+	// Configure the descriptors to refer to buffers
+	VkDescriptorImageInfo imageInfo = {};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo.imageView = texture->imageView;
+	imageInfo.sampler = texture->sampler;
+
+	std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = imageDescriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorWrites[0].descriptorCount = 1;
 	descriptorWrites[0].pBufferInfo = nullptr;
 	descriptorWrites[0].pImageInfo = &imageInfo;

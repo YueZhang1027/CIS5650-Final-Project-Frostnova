@@ -8,6 +8,7 @@
 #include "Image.h"
 #include "shaderprogram/BackgroundShader.h"
 #include "shaderprogram/ReprojectShader.h"
+#include "shaderprogram/ComputeShader.h"
 
 // TODO: setup 
 struct OffscreenPass {
@@ -58,6 +59,7 @@ private:
     // --- Shader programs ---
     BackgroundShader* backgroundShader;
     ReprojectShader* reprojectShader;
+    ComputeShader* computeShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
@@ -66,6 +68,9 @@ private:
     Texture* depthTexture;
     Texture* imageCurTexture;
     Texture* imagePrevTexture;
+
+    Texture* hiResCloudShapeTexture;
+    Texture* lowResCloudShapeTexture;
 
     // --- Geometries ---
     Model* backgroundQuad;
