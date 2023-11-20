@@ -17,7 +17,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     CreateCommandPools();
     CreateRenderPass();
-    CreateOffscreenRenderPass();
+    //CreateOffscreenRenderPass();
 
     // TODO: custom pipeline creation here
     CreateFrameResources();
@@ -138,13 +138,20 @@ void Renderer::CreateModels() {
 
 void Renderer::CreateDescriptors() {
     Descriptor::CreateImageStorageDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateTimeDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
+    // Storage image - cur, prev
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
+    
+    // Image - 3D hi res, 3D low res
+
+
+    // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
     Descriptor::CreateTimeDescriptorSet(logicalDevice, scene);
 }
@@ -152,21 +159,22 @@ void Renderer::CreateDescriptors() {
 void Renderer::CreatePipelines() {
     backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
     reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
+    computeShader = new ComputeShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
     imageViews.resize(swapChain->GetCount());
 
     // CREATE CUSTOM TEXTURES
-    depthTexture = new Texture();
-    Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), depthTexture); // Special for depth texture
+    depthTexture = Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent()); // Special for depth texture
 
     // Two ping pong images for reprojection and compute
-    imageCurTexture = new Texture();
-    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imageCurTexture);
+    imageCurTexture = Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent());
+    imagePrevTexture = Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent());
 
-    imagePrevTexture = new Texture();
-    Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), imagePrevTexture);
+    // Create images to sample in the shader
+    hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
+    lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -232,6 +240,10 @@ void Renderer::DestroyFrameResources() {
     delete imageCurTexture;
     imagePrevTexture->CleanUp(logicalDevice);
     delete imagePrevTexture;
+    hiResCloudShapeTexture->CleanUp(logicalDevice);
+    delete hiResCloudShapeTexture;
+    lowResCloudShapeTexture->CleanUp(logicalDevice);
+    delete lowResCloudShapeTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -240,15 +252,12 @@ void Renderer::DestroyFrameResources() {
 
 void Renderer::RecreateFrameResources() {
     backgroundShader->CleanUp();
-    //reprojectShader->CleanUp();
     vkFreeCommandBuffers(logicalDevice, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     DestroyFrameResources();
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
-    //reprojectShader->CreateShaderProgram();
-
     RecordCommandBuffers();
 }
 
@@ -408,6 +417,8 @@ Renderer::~Renderer() {
     delete backgroundShader;
     reprojectShader->CleanUp();
     delete reprojectShader;
+    computeShader->CleanUp();
+    delete computeShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();

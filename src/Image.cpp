@@ -6,6 +6,9 @@
 #include "Instance.h"
 #include "BufferUtils.h"
 
+#include <string>
+#include <iostream>
+
 void Image::Create(Device* device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
     // Create Vulkan image
     VkImageCreateInfo imageInfo = {};
@@ -14,6 +17,43 @@ void Image::Create(Device* device, uint32_t width, uint32_t height, VkFormat for
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(device->GetVkDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create image");
+    }
+
+    // Allocate memory for the image
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device->GetVkDevice(), image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = device->GetInstance()->GetMemoryTypeIndex(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(device->GetVkDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate image memory");
+    }
+
+    // Bind the image
+    vkBindImageMemory(device->GetVkDevice(), image, imageMemory, 0);
+}
+
+void Image::Create3D(Device* device, glm::ivec3 dimension, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;
+    imageInfo.extent.width = dimension.x;
+    imageInfo.extent.height = dimension.y;
+    imageInfo.extent.depth = dimension.z;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
@@ -128,11 +168,11 @@ void Image::TransitionLayout(Device* device, VkCommandPool commandPool, VkImage 
     vkFreeCommandBuffers(device->GetVkDevice(), commandPool, 1, &commandBuffer);
 }
 
-VkImageView Image::CreateView(Device* device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
+VkImageView Image::CreateView(Device* device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageViewType viewType) {
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = viewType;
     viewInfo.format = format;
 
     // Describe the image's purpose and which part of the image should be accessed
@@ -177,7 +217,7 @@ VkSampler Image::CreateSampler(Device* device) {
     return textureSampler;
 }
 
-void Image::CopyFromBuffer(Device* device, VkCommandPool commandPool, VkBuffer buffer, VkImage& image, uint32_t width, uint32_t height) {
+void Image::CopyFromBuffer(Device* device, VkCommandPool commandPool, VkBuffer buffer, VkImage& image, uint32_t width, uint32_t height, uint32_t depth) {
     // Specify which part of the buffer is going to be copied to which part of the image
     VkBufferImageCopy region = {};
     region.bufferOffset = 0;
@@ -190,7 +230,7 @@ void Image::CopyFromBuffer(Device* device, VkCommandPool commandPool, VkBuffer b
     region.imageSubresource.layerCount = 1;
 
     region.imageOffset = { 0, 0, 0 };
-    region.imageExtent = { width, height, 1 };
+    region.imageExtent = { width, height, depth };
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -253,7 +293,7 @@ void Image::FromFile(Device* device, VkCommandPool commandPool, const char* path
     // Copy the staging buffer to the texture image
     // --> First need to transition the texture image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    Image::CopyFromBuffer(device, commandPool, stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    Image::CopyFromBuffer(device, commandPool, stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
     // Transition texture image for shader access
     Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, layout);
@@ -263,7 +303,51 @@ void Image::FromFile(Device* device, VkCommandPool commandPool, const char* path
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
 }
 
-void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent, Texture* texture) {
+void Image::FromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+    VkDeviceSize imageSize = dimension.x * dimension.y * dimension.z * 4;
+    
+    // Create staging buffer
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    VkBufferUsageFlags stagingUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    VkMemoryPropertyFlags stagingProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    BufferUtils::CreateBuffer(device, imageSize, stagingUsage, stagingProperties, stagingBuffer, stagingBufferMemory);
+
+    int width, height, channels;
+    for (uint32_t i = 0; i < static_cast<uint32_t>(dimension.z); ++i) {
+        stbi_uc* pixels = stbi_load((path + std::string("(") + std::to_string(i) + ").tga").c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        if (!pixels) {
+            std::cout << "Failed to load texture image" << i << std::endl;
+			throw std::runtime_error("Failed to load texture image");
+		}
+
+        void* data;
+        imageSize = width * height * 4;
+        vkMapMemory(device->GetVkDevice(), stagingBufferMemory, static_cast<uint64_t>(i) * imageSize, imageSize, 0, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device->GetVkDevice(), stagingBufferMemory);
+
+        stbi_image_free(pixels);
+    }
+
+    // Create Vulkan image
+    Image::Create3D(device, dimension, format, tiling, VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage, properties, image, imageMemory);
+
+    // Copy the staging buffer to the texture image
+    Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	Image::CopyFromBuffer(device, commandPool, stagingBuffer, image, static_cast<uint32_t>(dimension.x), static_cast<uint32_t>(dimension.y), static_cast<uint32_t>(dimension.z)); // TODO: check
+
+    // Transition texture image for shader access
+    Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, layout);
+
+    // No need for staging buffer anymore
+    vkDestroyBuffer(device->GetVkDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
+}
+
+Texture* Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent) {
+    Texture* texture = new Texture();
     VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     // CREATE DEPTH IMAGE
     Image::Create(device,
@@ -277,13 +361,15 @@ void Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool
         texture->imageMemory
     );
 
-    texture->imageView = Image::CreateView(device, texture->image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    texture->imageView = Image::CreateView(device, texture->image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D);
 
     // Transition the image for use as depth-stencil
     Image::TransitionLayout(device, graphicsCommandPool, texture->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    return texture;
 }
 
-void Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, Texture* texture) {
+Texture* Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent) {
+    Texture* texture = new Texture();
     VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
     int texWidth = extent.width, texHeight = extent.height, texChannels = 4;
     VkDeviceSize imageSize = texWidth * texHeight * texChannels;
@@ -300,6 +386,31 @@ void Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, VkEx
 
     Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL); // TODO: check new layout
 
-    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
     texture->sampler = Image::CreateSampler(device);
+
+    return texture;
+}
+
+// path only contain the general file name, not the extension
+Texture* Image::CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension) {
+    Texture* texture = new Texture();
+    VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+    Image::FromFiles(device, 
+        commandPool, 
+        path, 
+        dimension, 
+        imageFormat, 
+        VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_SAMPLED_BIT, 
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        texture->image, 
+        texture->imageMemory);
+
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D);
+    texture->sampler = Image::CreateSampler(device);
+
+    return texture;
 }

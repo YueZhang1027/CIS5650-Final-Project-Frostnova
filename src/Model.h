@@ -32,17 +32,11 @@ protected:
 
     ModelBufferObject modelBufferObject;
 
-    VkImage texture = VK_NULL_HANDLE;
-    VkImageView textureView = VK_NULL_HANDLE;
-    VkSampler textureSampler = VK_NULL_HANDLE;
-
 public:
     Model() = delete;
     Model(Device* device, VkCommandPool commandPool, ModelCreateFlags flag);
     Model(Device* device, VkCommandPool commandPool, const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     virtual ~Model();
-
-    void SetTexture(VkImage texture);
 
     const std::vector<Vertex>& getVertices() const;
 
@@ -55,8 +49,6 @@ public:
     const ModelBufferObject& getModelBufferObject() const;
 
     VkBuffer GetModelBuffer() const;
-    VkImageView GetTextureView() const;
-    VkSampler GetTextureSampler() const;
 
     void EnqueueDrawCommands(VkCommandBuffer& commandBuffer);
 };

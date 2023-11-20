@@ -1,10 +1,17 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-//layout(set = 0, binding = 0) uniform CameraBufferObject {
-//    mat4 view;
-//	mat4 proj;
-//} camera;
+layout(set = 0, binding = 0) uniform CameraBufferObject {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPos;
+} camera;
+
+layout(set = 0, binding = 1) uniform CameraBufferObjectPrev {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPos;
+} cameraPrev;
 
 //layout(set = 1, binding = 0) uniform ModelBufferObject {
 //    mat4 model;
@@ -22,7 +29,7 @@ out gl_PerVertex {
 };
 
 void main() {
-    gl_Position = vec4(inPosition, 1.0);
+    gl_Position = vec4(inPosition, 1.0); // camera.proj * camera.view * 
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }
