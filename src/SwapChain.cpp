@@ -69,7 +69,8 @@ SwapChain::SwapChain(Device* device, VkSurfaceKHR vkSurface, unsigned int numBuf
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     if (vkCreateSemaphore(device->GetVkDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-        vkCreateSemaphore(device->GetVkDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS) {
+        vkCreateSemaphore(device->GetVkDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS || 
+        vkCreateSemaphore(device->GetVkDevice(), &semaphoreInfo, nullptr, &offscreenFinishedSemaphore) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create semaphores");
     }
 }
@@ -181,11 +182,14 @@ VkImage SwapChain::GetVkImage(uint32_t index) const {
 
 VkSemaphore SwapChain::GetImageAvailableVkSemaphore() const {
     return imageAvailableSemaphore;
-
 }
 
 VkSemaphore SwapChain::GetRenderFinishedVkSemaphore() const {
     return renderFinishedSemaphore;
+}
+
+VkSemaphore SwapChain::GetOffscreenFinishedVkSemaphore() const {
+	return offscreenFinishedSemaphore;
 }
 
 void SwapChain::Recreate() {

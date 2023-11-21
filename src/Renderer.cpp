@@ -17,7 +17,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     CreateCommandPools();
     CreateRenderPass();
-    //CreateOffscreenRenderPass();
+    CreateOffscreenRenderPass();
 
     // TODO: custom pipeline creation here
     CreateFrameResources();
@@ -27,6 +27,7 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
 
     RecordCommandBuffers();
     RecordComputeCommandBuffer();
+    //RecordOffscreenCommandBuffers();
 }
 
 void Renderer::CreateCommandPools() {
@@ -117,7 +118,107 @@ void Renderer::CreateRenderPass() {
 }
 
 void Renderer::CreateOffscreenRenderPass() {
+    // Color buffer attachment represented by one of the images from the swap chain
+    VkAttachmentDescription colorAttachment = {};
+    colorAttachment.format = swapChain->GetVkImageFormat();
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+    // Create a color attachment reference to be used with subpass
+    VkAttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    // Depth buffer attachment
+    VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    VkAttachmentDescription depthAttachment = {};
+    depthAttachment.format = depthFormat;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    // Create a depth attachment reference
+    VkAttachmentReference depthAttachmentRef = {};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    // Create subpass description
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+    std::array<VkSubpassDependency, 2> dependencies;
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+
+    // Create the actual renderpass
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+    renderPassInfo.pDependencies = dependencies.data();
+
+    if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &offscreenRenderPass) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create render pass!");
+    }
+
+    // Create the offscreen framebuffer
+    int renderPassCount = 2;
+    offscreenTextures.resize((renderPassCount - 1) * 2);
+    offscreenFramebuffers.resize(renderPassCount - 1);
+    
+    for (int i = 0; i < renderPassCount - 1; ++i) {
+        offscreenTextures[i] = Image::CreateColorTexture(device, graphicsCommandPool, swapChain->GetVkExtent(), swapChain->GetVkImageFormat());
+	    offscreenTextures[i + 1] = Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent());
+
+        std::vector<VkImageView> attachments = {
+			offscreenTextures[i]->imageView,
+			offscreenTextures[i + 1]->imageView
+		};
+
+		VkFramebufferCreateInfo framebufferInfo = {};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = offscreenRenderPass;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
+		framebufferInfo.width = swapChain->GetVkExtent().width;
+		framebufferInfo.height = swapChain->GetVkExtent().height;
+		framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &offscreenFramebuffers[i]) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create framebuffer");
+		}
+    }
 }
 
 void Renderer::CreateModels() {
@@ -354,6 +455,60 @@ void Renderer::RecordCommandBuffers() {
     }
 }
 
+void Renderer::RecordOffscreenCommandBuffers() {
+    offscreenCommandBuffers.resize(2);
+
+	// Specify the command pool and number of buffers to allocate
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandPool = graphicsCommandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandBufferCount = static_cast<uint32_t>(offscreenCommandBuffers.size());
+
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, offscreenCommandBuffers.data()) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate command buffers");
+	}
+
+	// Start command buffer recording
+    for (size_t i = 0; i < offscreenCommandBuffers.size(); i++) {
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		// ~ Start recording ~
+        if (vkBeginCommandBuffer(offscreenCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to begin recording command buffer");
+		}
+
+		// Begin the render pass
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = offscreenRenderPass;
+		renderPassInfo.framebuffer = offscreenFramebuffers[0];
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = swapChain->GetVkExtent();
+
+		std::array<VkClearValue, 2> clearValues = {};
+		clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		vkCmdBeginRenderPass(offscreenCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		// Bind the graphics pipeline
+
+        vkCmdEndRenderPass(offscreenCommandBuffers[i]);
+
+        // Use the next framebuffer in the offscreen pass
+
+        // ~ End recording ~
+        if (vkEndCommandBuffer(offscreenCommandBuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record command buffer");
+        }
+    }
+}
+
 void Renderer::UpdateUniformBuffers() {
     scene->UpdateTime(); // time
     camera->UpdatePrevBuffer(); // camera prev
@@ -364,7 +519,9 @@ void Renderer::Frame() {
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = computeCommandBuffers.data();
+    computeSubmitInfo.pCommandBuffers = &computeCommandBuffers[(swapBackground ? 1 : 0)];
+    // swap buffers
+    swapBackground = !swapBackground;
 
     if (vkQueueSubmit(device->GetQueue(QueueFlags::Compute), 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer");
@@ -385,12 +542,23 @@ void Renderer::Frame() {
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
+    // Do all offscreen rendering
+    /*VkSemaphore offscreenSemaphores[] = {swapChain->GetOffscreenFinishedVkSemaphore()};
+    submitInfo.pSignalSemaphores = offscreenSemaphores;
+    submitInfo.signalSemaphoreCount = 1;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[swapChain->GetIndex()];
+    submitInfo.pCommandBuffers = &offscreenCommandBuffers[(swapBackground ? 1 : 0)];
+
+    if (vkQueueSubmit(device->GetQueue(QueueFlags::Graphics), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to submit draw command buffer");
+    }*/
 
     VkSemaphore signalSemaphores[] = { swapChain->GetRenderFinishedVkSemaphore() };
     submitInfo.signalSemaphoreCount = 1;
+    //submitInfo.pWaitSemaphores = offscreenSemaphores;
     submitInfo.pSignalSemaphores = signalSemaphores;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffers[swapChain->GetIndex()];
 
     if (vkQueueSubmit(device->GetQueue(QueueFlags::Graphics), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer");

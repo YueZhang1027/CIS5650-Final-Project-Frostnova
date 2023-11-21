@@ -16,6 +16,7 @@ public:
     VkImage GetVkImage(uint32_t index) const;
     VkSemaphore GetImageAvailableVkSemaphore() const;
     VkSemaphore GetRenderFinishedVkSemaphore() const;
+    VkSemaphore GetOffscreenFinishedVkSemaphore() const;
     
     void Recreate();
     bool Acquire();
@@ -37,5 +38,6 @@ private:
     uint32_t imageIndex = 0;
 
     VkSemaphore imageAvailableSemaphore;
+    VkSemaphore offscreenFinishedSemaphore;
     VkSemaphore renderFinishedSemaphore;
 };

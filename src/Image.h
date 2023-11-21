@@ -30,6 +30,7 @@ namespace Image {
     void FromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory); // to constuct 3D
 
     // --- Specific Texture Creation ---
+    Texture* CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format);
     Texture* CreateDepthTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent);
     Texture* CreateStorageTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent);
     Texture* CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension);
