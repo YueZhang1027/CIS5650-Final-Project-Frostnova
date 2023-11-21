@@ -140,7 +140,6 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageStorageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
-    Descriptor::CreateTimeDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
@@ -148,12 +147,11 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
     
-    // Image - 3D hi res, 3D low res
-
+    // Image - frame, 3D hi res, 3D low res
+    Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
-    Descriptor::CreateTimeDescriptorSet(logicalDevice, scene);
 }
 
 void Renderer::CreatePipelines() {

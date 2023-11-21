@@ -1,12 +1,12 @@
 #include <iostream>
 
+#define PI                3.1415926535897932384626422832795028841971f
 #define GLM_FORCE_RADIANS
 // Use Vulkan depth range of 0.0 to 1.0 instead of OpenGL
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Camera.h"
-#include "BufferUtils.h"
 
 Camera::Camera(Device* device, float aspectRatio) : device(device) {
     r = 10.0f;
@@ -19,24 +19,37 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
     cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);
 
-    BufferUtils::CreateBuffer(device, sizeof(CameraBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, bufferMemory);
-    vkMapMemory(device->GetVkDevice(), bufferMemory, 0, sizeof(CameraBufferObject), 0, &mappedData);
-    memcpy(mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+    camBuffer.MapMemory(device, sizeof(CameraBufferObject));
+    memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 
     // Create a second buffer for the previous frame
     prevCameraBufferObject.CopyFrom(cameraBufferObject);
-    BufferUtils::CreateBuffer(device, sizeof(CameraBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, prevBuffer, prevBufferMemory);
-    vkMapMemory(device->GetVkDevice(), prevBufferMemory, 0, sizeof(CameraBufferObject), 0, &prevMappedData);
-    memcpy(prevMappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
+    prevCamBuffer.MapMemory(device, sizeof(CameraBufferObject));
+    memcpy(prevCamBuffer.mappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
+
+    // Create a buffer for camera parameters
+    float fovy = 45.0f;
+    float yscaled = tan(fovy * (PI / 180));
+    float xscaled = (yscaled * 1920.f) / 1080.f;
+    float fovx = (atan(xscaled) * 180) / PI;
+    cameraParamBufferObject.fov = glm::vec2(fovx, fovy);
+    cameraParamBufferObject.pixelLength = glm::vec2(2 * xscaled / (float)1920.f,
+        2 * yscaled / (float)1080.f);
+
+    cameraParamBuffer.MapMemory(device, sizeof(CameraParamBufferObject));
+    memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
 }
 
-VkBuffer Camera::GetPrevBuffer() const
-{
-    return prevBuffer;
+VkBuffer Camera::GetPrevBuffer() const {
+    return prevCamBuffer.buffer;
 }
 
 VkBuffer Camera::GetBuffer() const {
-    return buffer;
+    return camBuffer.buffer;
+}
+
+VkBuffer Camera::GetCameraParamBuffer() const {
+	return cameraParamBuffer.buffer;
 }
 
 void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
@@ -53,16 +66,16 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     cameraBufferObject.viewMatrix = glm::inverse(finalTransform);
     cameraBufferObject.cameraPosition = glm::vec4(finalTransform[0][3], finalTransform[1][3], finalTransform[2][3], 1.0f);
 
-    memcpy(mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+    memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
 void Camera::UpdatePrevBuffer() {
     prevCameraBufferObject.CopyFrom(cameraBufferObject);
-    memcpy(prevMappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
+    memcpy(prevCamBuffer.mappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
 }
 
 Camera::~Camera() {
-  vkUnmapMemory(device->GetVkDevice(), bufferMemory);
-  vkDestroyBuffer(device->GetVkDevice(), buffer, nullptr);
-  vkFreeMemory(device->GetVkDevice(), bufferMemory, nullptr);
+    camBuffer.Clean(device);
+    prevCamBuffer.Clean(device);
+    cameraParamBuffer.Clean(device);
 }

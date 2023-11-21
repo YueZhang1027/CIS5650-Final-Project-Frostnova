@@ -135,6 +135,12 @@ void Image::TransitionLayout(Device* device, VkCommandPool commandPool, VkImage 
     
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     } else {
         throw std::invalid_argument("Unsupported layout transition");
     }
@@ -384,7 +390,7 @@ Texture* Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, 
         texture->image, 
         texture->imageMemory);
 
-    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL); // TODO: check new layout
+    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL); // TODO: check new layout
 
     texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
     texture->sampler = Image::CreateSampler(device);

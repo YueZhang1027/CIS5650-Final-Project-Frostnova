@@ -5,20 +5,50 @@
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
 layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
+// Store the previous frame's image in a separate image
 layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
 
 layout(set = 2, binding = 0) uniform CameraObject {
     mat4 view;
     mat4 proj;
-    vec4 cameraPosition;
+    vec4 position;
 } camera;
 
+// Store the previous frame's camera
 layout(set = 2, binding = 1) uniform CameraObjectPrev {
     mat4 view;
     mat4 proj;
-    vec4 cameraPosition;
+    vec4 position;
 } cameraPrev;
 
+layout(set = 2, binding = 2) uniform CameraParamObject {
+    vec2 fov;
+    vec2 pixelLength;
+} cameraParam;
+
+struct Intersection {
+    vec3 normal;
+    vec3 point;
+    float t;
+};
+
 void main() {
-	
+	ivec2 dim = imageSize(sourceImage);
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; // [0.0, 1.0]
+    vec2 screenPos = gl_GlobalInvocationID.xy - 0.5f * dim; // [-0.5 * dim, 0.5 * dim]
+    vec4 sourceColor = vec4(0.0f);
+
+    // Ray cast current frame
+    vec3 camRight = vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]);
+    vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
+    vec3 camView = vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]);
+
+    vec3 rayOrigin = camera.position.xyz;
+    vec3 rayDirection = normalize(camView
+        - camRight * cameraParam.pixelLength.x * screenPos.x
+        - camUp * cameraParam.pixelLength.y * screenPos.y);
+
+
+
+    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

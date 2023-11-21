@@ -3,6 +3,7 @@
 
 #include <glm/glm.hpp>
 #include "Device.h"
+#include "BufferUtils.h"
 
 struct CameraBufferObject {
   glm::mat4 viewMatrix;
@@ -16,19 +17,23 @@ struct CameraBufferObject {
   }
 };
 
+struct CameraParamBufferObject {
+    glm::vec2 fov;
+    glm::vec2 pixelLength;
+};
+
 class Camera {
 private:
     Device* device;
     
     CameraBufferObject cameraBufferObject;
-    VkBuffer buffer;
-    VkDeviceMemory bufferMemory;
-    void* mappedData;
+    UniformBuffer camBuffer;
 
     CameraBufferObject prevCameraBufferObject; // TODO: update this in the update loop
-    VkBuffer prevBuffer;
-    VkDeviceMemory prevBufferMemory;
-    void* prevMappedData;
+    UniformBuffer prevCamBuffer;
+
+    CameraParamBufferObject cameraParamBufferObject;
+    UniformBuffer cameraParamBuffer;
 
     float r, theta, phi;
 
@@ -38,6 +43,7 @@ public:
 
     VkBuffer GetPrevBuffer() const;
     VkBuffer GetBuffer() const;
+    VkBuffer GetCameraParamBuffer() const;
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePrevBuffer();

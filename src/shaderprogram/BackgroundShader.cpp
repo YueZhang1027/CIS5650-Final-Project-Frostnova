@@ -124,7 +124,7 @@ void BackgroundShader::CreateShaderProgram() {
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::cameraDescriptorSetLayout, Descriptor::timeDescriptorSetLayout }; // cameraDescriptorSetLayout, modelDescriptorSetLayout 
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::imageDescriptorSetLayout };
 
     // Pipeline layout: used to specify uniform values
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -169,6 +169,6 @@ void BackgroundShader::BindShaderProgram(VkCommandBuffer& commandBuffer)
 {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &Descriptor::timeDescriptorSet, 0, nullptr);
+    // TODO: check here
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::frameDescriptorSet, 0, nullptr);
 }
