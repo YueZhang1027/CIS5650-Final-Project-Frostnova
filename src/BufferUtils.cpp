@@ -90,3 +90,14 @@ void BufferUtils::CreateBufferFromData(Device* device, VkCommandPool commandPool
     vkDestroyBuffer(device->GetVkDevice(), stagingBuffer, nullptr);
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
 }
+
+void UniformBuffer::MapMemory(Device* device, VkDeviceSize size) {
+    BufferUtils::CreateBuffer(device, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, bufferMemory);
+    vkMapMemory(device->GetVkDevice(), bufferMemory, 0, size, 0, &mappedData);
+}
+
+void UniformBuffer::Clean(Device* device) {
+    vkUnmapMemory(device->GetVkDevice(), bufferMemory);
+    vkDestroyBuffer(device->GetVkDevice(), buffer, nullptr);
+    vkFreeMemory(device->GetVkDevice(), bufferMemory, nullptr);
+}

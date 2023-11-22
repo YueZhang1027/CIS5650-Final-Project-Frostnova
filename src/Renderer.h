@@ -6,18 +6,10 @@
 #include "Camera.h"
 
 #include "Image.h"
-#include "shaderprogram/BackgroundShader.h"
 #include "shaderprogram/ReprojectShader.h"
 #include "shaderprogram/ComputeShader.h"
+#include "shaderprogram/PostShader.h"
 
-// TODO: setup 
-struct OffscreenPass {
-    VkRenderPass renderPass;
-    VkSampler sampler;
-    std::vector<VkCommandBuffer> commandBuffers;
-    VkSemaphore semaphore = VK_NULL_HANDLE;
-    std::array<VkFramebuffer, 3> framebuffers;
-};
 
 class Renderer {
 public:
@@ -39,6 +31,7 @@ public:
     void RecreateFrameResources();
 
     void RecordCommandBuffers();
+    void RecordOffscreenCommandBuffers();
     void RecordComputeCommandBuffer();
 
     void UpdateUniformBuffers();
@@ -55,15 +48,19 @@ private:
     VkCommandPool computeCommandPool;
 
     VkRenderPass renderPass;
+    VkRenderPass offscreenRenderPass;
 
     // --- Shader programs ---
-    BackgroundShader* backgroundShader;
+    PostShader* backgroundShader;
     ReprojectShader* reprojectShader;
     ComputeShader* computeShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
     std::vector<VkFramebuffer> framebuffers;
+
+    std::vector<Texture*> offscreenTextures;
+    std::vector<VkFramebuffer> offscreenFramebuffers;
 
     Texture* depthTexture;
     Texture* imageCurTexture;
@@ -78,4 +75,6 @@ private:
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkCommandBuffer> computeCommandBuffers;
+    std::vector<VkCommandBuffer> offscreenCommandBuffers;
+    bool swapBackground = false;
 };

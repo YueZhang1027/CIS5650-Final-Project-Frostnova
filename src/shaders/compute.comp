@@ -20,5 +20,6 @@ layout(set = 2, binding = 1) uniform CameraObjectPrev {
 } cameraPrev;
 
 void main() {
-	
+	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+	imageStore(targetImage, storePos, vec4(0.3f, 0.7f, 0.2f, 1.f));
 }

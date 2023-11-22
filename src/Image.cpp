@@ -135,6 +135,18 @@ void Image::TransitionLayout(Device* device, VkCommandPool commandPool, VkImage 
     
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     } else {
         throw std::invalid_argument("Unsupported layout transition");
     }
@@ -346,6 +358,34 @@ void Image::FromFiles(Device* device, VkCommandPool commandPool, const char* pat
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
 }
 
+Texture* Image::CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format) {
+    Texture* texture = new Texture();
+    Image::Create(device,
+        extent.width,
+        extent.height,
+        format,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture->image,
+        texture->imageMemory);
+
+    Image::TransitionLayout(device,
+        commandPool,
+        texture->image,
+        format,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    texture->imageView = Image::CreateView(device,
+        texture->image,
+        format,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_VIEW_TYPE_2D);
+
+    return texture;
+}
+
 Texture* Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommandPool, VkExtent2D extent) {
     Texture* texture = new Texture();
     VkFormat depthFormat = device->GetInstance()->GetSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
@@ -361,10 +401,11 @@ Texture* Image::CreateDepthTexture(Device* device, VkCommandPool graphicsCommand
         texture->imageMemory
     );
 
-    texture->imageView = Image::CreateView(device, texture->image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D);
-
     // Transition the image for use as depth-stencil
     Image::TransitionLayout(device, graphicsCommandPool, texture->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    texture->imageView = Image::CreateView(device, texture->image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D);
+
     return texture;
 }
 
@@ -384,7 +425,7 @@ Texture* Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, 
         texture->image, 
         texture->imageMemory);
 
-    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL); // TODO: check new layout
+    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL); // TODO: check new layout
 
     texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
     texture->sampler = Image::CreateSampler(device);
