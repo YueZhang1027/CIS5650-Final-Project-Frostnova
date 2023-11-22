@@ -18,24 +18,19 @@ void PostShader::CreateShaderProgram() {
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     vertShaderStageInfo.module = vertShaderModule;
     vertShaderStageInfo.pName = "main";
-
     VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
-
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
     // --- Set up fixed-function stages ---
-
     // Vertex input
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -55,11 +50,9 @@ void PostShader::CreateShaderProgram() {
     viewport.height = static_cast<float>(swapChain->GetVkExtent().height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-
     VkRect2D scissor = {};
     scissor.offset = { 0, 0 };
     scissor.extent = swapChain->GetVkExtent();
-
     VkPipelineViewportStateCreateInfo viewportState = {};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
@@ -76,7 +69,7 @@ void PostShader::CreateShaderProgram() {
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_TRUE;
+    rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
@@ -125,8 +118,10 @@ void PostShader::CreateShaderProgram() {
     colorBlending.blendConstants[1] = 0.0f;
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { 
+        Descriptor::imageDescriptorSetLayout 
+    };
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { Descriptor::cameraDescriptorSetLayout}; // TODO: check
     // Pipeline layout: used to specify uniform values
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -139,7 +134,7 @@ void PostShader::CreateShaderProgram() {
         throw std::runtime_error("Failed to create pipeline layout");
     }
 
-    // --- Create pipeline ---
+    // --- Create graphics pipeline ---
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -169,4 +164,5 @@ void PostShader::CreateShaderProgram() {
 void PostShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     // TODO: bind descriptor sets
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::frameDescriptorSet, 0, nullptr);
 }

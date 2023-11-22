@@ -12,8 +12,9 @@ out gl_PerVertex {
     vec4 gl_Position;
 };
 
+// Simply pass through the vertex position and color
 void main() {
-    gl_Position = vec4(inPosition, 1.0); // camera.proj * camera.view * 
+    gl_Position = vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }

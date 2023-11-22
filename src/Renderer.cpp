@@ -256,7 +256,7 @@ void Renderer::CreateDescriptors() {
 }
 
 void Renderer::CreatePipelines() {
-    backgroundShader = new BackgroundShader(device, swapChain, &renderPass);
+    backgroundShader = new PostShader(device, swapChain, &renderPass, "shaders/post.vert.spv", "shaders/tone.frag.spv");
     reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
     computeShader = new ComputeShader(device, swapChain, &renderPass);
 }
@@ -386,7 +386,8 @@ void Renderer::RecordComputeCommandBuffer() {
         }
 
         // Reproject
-        reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
+        //reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
+        computeShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
         vkCmdDispatch(computeCommandBuffers[i],
             static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),

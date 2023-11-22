@@ -6,9 +6,10 @@
 #include "Camera.h"
 
 #include "Image.h"
-#include "shaderprogram/BackgroundShader.h"
 #include "shaderprogram/ReprojectShader.h"
 #include "shaderprogram/ComputeShader.h"
+#include "shaderprogram/PostShader.h"
+
 
 class Renderer {
 public:
@@ -50,7 +51,7 @@ private:
     VkRenderPass offscreenRenderPass;
 
     // --- Shader programs ---
-    BackgroundShader* backgroundShader;
+    PostShader* backgroundShader;
     ReprojectShader* reprojectShader;
     ComputeShader* computeShader;
 
