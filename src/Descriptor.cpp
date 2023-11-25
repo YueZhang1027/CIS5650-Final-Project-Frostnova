@@ -6,12 +6,14 @@
 VkDescriptorSetLayout Descriptor::cameraDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::imageDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::imageStorageDescriptorSetLayout;
+VkDescriptorSetLayout Descriptor::computeImagesDescriptorSetLayout;
 
 VkDescriptorPool Descriptor::descriptorPool;
 
 VkDescriptorSet Descriptor::imageCurDescriptorSet;
 VkDescriptorSet Descriptor::imagePrevDescriptorSet;
 VkDescriptorSet Descriptor::frameDescriptorSet;
+VkDescriptorSet Descriptor::computeImagesDescriptorSet;
 VkDescriptorSet Descriptor::cameraDescriptorSet;
 
 void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
@@ -54,6 +56,45 @@ void Descriptor::CreateImageDescriptorSetLayout(VkDevice logicalDevice) {
 
     if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &imageDescriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor set layout: Image");
+    }
+}
+
+void Descriptor::CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice) {
+    VkDescriptorSetLayoutBinding lowResLayoutBinding = {};
+    lowResLayoutBinding.binding = 0;
+    lowResLayoutBinding.descriptorCount = 1;
+    lowResLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    lowResLayoutBinding.pImmutableSamplers = nullptr;
+    lowResLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding hiResLayoutBinding = {};
+    hiResLayoutBinding.binding = 1;
+    hiResLayoutBinding.descriptorCount = 1;
+    hiResLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    hiResLayoutBinding.pImmutableSamplers = nullptr;
+    hiResLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding weatherMapLayoutBinding = {};
+    weatherMapLayoutBinding.binding = 2;
+    weatherMapLayoutBinding.descriptorCount = 1;
+    weatherMapLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    weatherMapLayoutBinding.pImmutableSamplers = nullptr;
+    weatherMapLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { 
+        lowResLayoutBinding, // lowRes
+        hiResLayoutBinding, // hiRes
+        weatherMapLayoutBinding // weatherMap
+    };
+
+    // Create the descriptor set layout
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &computeImagesDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor set layout: Compute shader images");
     }
 }
 
@@ -101,8 +142,11 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
 
-        // Image samplers: 3D hi-res, 3D low-res
+        // Image samplers: frame
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+
+        // Image samplers: compute images: lowres, hires, weather map
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
 
         // Camera, PrevCamera, Parameter
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
@@ -114,7 +158,7 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 10; // TODO: check
+    poolInfo.maxSets = 15; // TODO: check
 
     if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor pool");
@@ -250,6 +294,71 @@ void Descriptor::CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camer
     descriptorWrites[2].descriptorCount = 1;
     descriptorWrites[2].pBufferInfo = &prevCameraBufferInfo;
     descriptorWrites[2].pImageInfo = nullptr;
+    descriptorWrites[2].pTexelBufferView = nullptr;
+
+    // Update descriptor sets
+    vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
+void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice, Texture* lowResTex, Texture* hiResTex, Texture* weatherMap) {
+    // Describe the desciptor set
+	VkDescriptorSetLayout layouts[] = { computeImagesDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	// Allocate descriptor sets
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &computeImagesDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate descriptor set");
+	}
+
+	// Configure the descriptors to refer to buffers
+	VkDescriptorImageInfo lowResImageInfo = {};
+	lowResImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	lowResImageInfo.imageView = lowResTex->imageView;
+	lowResImageInfo.sampler = lowResTex->sampler;
+
+	VkDescriptorImageInfo hiResImageInfo = {};
+	hiResImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	hiResImageInfo.imageView = hiResTex->imageView;
+	hiResImageInfo.sampler = hiResTex->sampler;
+
+	VkDescriptorImageInfo weatherMapImageInfo = {};
+	weatherMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	weatherMapImageInfo.imageView = weatherMap->imageView;
+	weatherMapImageInfo.sampler = weatherMap->sampler;
+
+	std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = computeImagesDescriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = nullptr;
+	descriptorWrites[0].pImageInfo = &lowResImageInfo;
+	descriptorWrites[0].pTexelBufferView = nullptr;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = computeImagesDescriptorSet;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pBufferInfo = nullptr;
+    descriptorWrites[1].pImageInfo = &hiResImageInfo;
+    descriptorWrites[1].pTexelBufferView = nullptr;
+
+    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].dstSet = computeImagesDescriptorSet;
+    descriptorWrites[2].dstBinding = 2;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pBufferInfo = nullptr;
+    descriptorWrites[2].pImageInfo = &weatherMapImageInfo;
     descriptorWrites[2].pTexelBufferView = nullptr;
 
     // Update descriptor sets

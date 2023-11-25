@@ -433,6 +433,26 @@ Texture* Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, 
     return texture;
 }
 
+Texture* Image::CreateTextureFromFile(Device* device, VkCommandPool commandPool, const char* path) {
+    Texture* texture = new Texture();
+    VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+    Image::FromFile(device, 
+        commandPool, 
+        path, 
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_SAMPLED_BIT, 
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        texture->image, 
+        texture->imageMemory);
+
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+    texture->sampler = Image::CreateSampler(device);
+    return texture;
+}
+
 // path only contain the general file name, not the extension
 Texture* Image::CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension) {
     Texture* texture = new Texture();

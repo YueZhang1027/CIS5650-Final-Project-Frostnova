@@ -10,6 +10,7 @@
 namespace Descriptor {
     void CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice);
     void CreateImageDescriptorSetLayout(VkDevice logicalDevice);
+    void CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice);
 
     void CreateCameraDescriptorSetLayout(VkDevice logicalDevice);
 
@@ -18,17 +19,21 @@ namespace Descriptor {
     void CreateImageStorageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet);
     void CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet);
     void CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera);
+    void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, Texture* lowResTex, Texture* hiResTex, Texture* weatherMap);
 
     void CleanUp(VkDevice logicalDevice);
 
     extern VkDescriptorSetLayout imageStorageDescriptorSetLayout;
     extern VkDescriptorSetLayout imageDescriptorSetLayout;
     extern VkDescriptorSetLayout cameraDescriptorSetLayout;
+    extern VkDescriptorSetLayout computeImagesDescriptorSetLayout;
 
     extern VkDescriptorPool descriptorPool;
 
     extern VkDescriptorSet imageCurDescriptorSet;
     extern VkDescriptorSet imagePrevDescriptorSet;
     extern VkDescriptorSet frameDescriptorSet;
+    extern VkDescriptorSet computeImagesDescriptorSet;
+
     extern VkDescriptorSet cameraDescriptorSet;
 }

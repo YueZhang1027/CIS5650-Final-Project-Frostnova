@@ -68,6 +68,7 @@ private:
 
     Texture* hiResCloudShapeTexture;
     Texture* lowResCloudShapeTexture;
+    Texture* weatherMapTexture;
 
     // --- Geometries ---
     Model* backgroundQuad;

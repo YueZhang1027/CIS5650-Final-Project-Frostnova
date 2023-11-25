@@ -241,6 +241,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageStorageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateComputeImagesDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
@@ -248,8 +249,11 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
     
-    // Image - frame, 3D hi res, 3D low res
+    // Image - frame
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
+
+    // Image - Compute shader images
+    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
@@ -274,6 +278,7 @@ void Renderer::CreateFrameResources() {
     // Create images to sample in the shader
     hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
     lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
+    weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
