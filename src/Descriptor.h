@@ -13,6 +13,7 @@ namespace Descriptor {
     void CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice);
 
     void CreateCameraDescriptorSetLayout(VkDevice logicalDevice);
+    void CreateSceneDescriptorSetLayout(VkDevice logicalDevice);
 
     void CreateDescriptorPool(VkDevice logicalDevice, Scene* scene);
 
@@ -20,6 +21,7 @@ namespace Descriptor {
     void CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet);
     void CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera);
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, Texture* lowResTex, Texture* hiResTex, Texture* weatherMap);
+    void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
 
     void CleanUp(VkDevice logicalDevice);
 
@@ -27,6 +29,7 @@ namespace Descriptor {
     extern VkDescriptorSetLayout imageDescriptorSetLayout;
     extern VkDescriptorSetLayout cameraDescriptorSetLayout;
     extern VkDescriptorSetLayout computeImagesDescriptorSetLayout;
+    extern VkDescriptorSetLayout sceneDescriptorSetLayout;
 
     extern VkDescriptorPool descriptorPool;
 
@@ -36,4 +39,5 @@ namespace Descriptor {
     extern VkDescriptorSet computeImagesDescriptorSet;
 
     extern VkDescriptorSet cameraDescriptorSet;
+    extern VkDescriptorSet sceneDescriptorSet;
 }

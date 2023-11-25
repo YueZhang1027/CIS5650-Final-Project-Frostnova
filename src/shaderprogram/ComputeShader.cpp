@@ -19,7 +19,8 @@ void ComputeShader::CreateShaderProgram() {
 		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::cameraDescriptorSetLayout,
-		Descriptor::computeImagesDescriptorSetLayout
+		Descriptor::computeImagesDescriptorSetLayout,
+		Descriptor::sceneDescriptorSetLayout
 	};
 
 	// Create pipeline layout
@@ -58,6 +59,8 @@ void ComputeShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &Descriptor::computeImagesDescriptorSet, 0, nullptr);
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 4, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
 
 	swapBuffers = !swapBuffers;
 }

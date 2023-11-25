@@ -13,8 +13,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     theta = 0.0f;
     phi = 0.0f;
 
-    glm::vec3 eye = glm::vec3(0.0f, 1.0f, 10.0f);
-    cameraBufferObject.viewMatrix = glm::lookAt(eye, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::vec3 eye = glm::vec3(0.0f, 325.0f, 10.0f);
+    cameraBufferObject.viewMatrix = glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
     cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);

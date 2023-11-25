@@ -242,6 +242,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateComputeImagesDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateSceneDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
@@ -257,6 +258,9 @@ void Renderer::CreateDescriptors() {
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
+
+    // Scene (Time) 
+    Descriptor::CreateSceneDescriptorSet(logicalDevice, scene);
 }
 
 void Renderer::CreatePipelines() {
