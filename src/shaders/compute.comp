@@ -19,7 +19,171 @@ layout(set = 2, binding = 1) uniform CameraObjectPrev {
     vec4 cameraPosition;
 } cameraPrev;
 
+layout(set = 2, binding = 2) uniform CameraParamObject {
+    vec2 fov;
+    vec2 pixelLength;
+} cameraParam;
+
+layout(set = 2, binding = 3) uniform sampler3D lowResCloudShape;
+layout(set = 2, binding = 4) uniform sampler3D hiResCloudShape;
+layout(set = 2, binding = 5) uniform sampler2D weatherMap;
+
+#define PI 3.14159265
+#define E 2.718281828459
+
+// Hard coded light direction
+const vec3 lightDir = vec3(0, -1, 0);
+
+// Hard coded cloud boundary
+float boundScale = 0.2;
+vec3 boundsMin = vec3(-50, -10, -50) * boundScale;
+vec3 boundsMax = vec3(50, 10, 50) * boundScale;
+
+float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
+    return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
+}
+
+float remapClamped(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
+    return clamp(newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)), newMin, newMax);
+}
+
+// Texture Sampling test
+float sampleDensity(in vec3 pos) {
+    float density;
+    vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
+
+  //  vec4 densityNoise = vec4(0.5, 0.5, 0.5, 0.5);
+
+    density = remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
+
+    if (density < 0.0001) return 0.0;
+
+    float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.w;
+    density = remapClamped(density, erosion, 1.0, 0.0, 1.0);
+
+    return density;
+}
+
+vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir)
+{
+     vec3 t0 = (boundsMin - rayOrigin) * invRaydir;
+     vec3 t1 = (boundsMax - rayOrigin) * invRaydir;
+     vec3 tmin = min(t0, t1);
+     vec3 tmax = max(t0, t1);
+
+     float dstA = max(max(tmin.x, tmin.y), tmin.z); //进入点
+     float dstB = min(tmax.x, min(tmax.y, tmax.z)); //出去点
+
+     float dstToBox = max(0, dstA);
+     float dstInsideBox = max(0, dstB - dstToBox);
+     return vec2(dstToBox, dstInsideBox);
+ }
+
+vec3 lightmarch(vec3 position, float dstTravelled)
+{
+        vec3 dirToLight = vec3(0, 20, 0);
+        float lightAbsorptionTowardSun = 1.38;
+
+        float dstInsideBox = rayBoxDst(boundsMin, boundsMax, position, 1 / dirToLight).y;
+        float stepSize = dstInsideBox / 8;
+        float totalDensity = 0;
+
+        for (int step = 0; step < 8; step++)
+        { 
+            position += dirToLight * stepSize; //向灯光步进
+            totalDensity += max(0, sampleDensity(position));
+        }
+        float transmittance = exp(-totalDensity * lightAbsorptionTowardSun);
+
+        vec4 white = vec4(1, 1, 1, 1);
+        vec4 colA = vec4(1, 1, 1, 1);
+        vec4 colB = vec4(0.5, 0.5, 1, 1);
+        float colorOffset1 = -11.5;
+        float colorOffset2 = -3.73;
+
+        vec4 cloudColor = mix(colA, white, clamp(transmittance * colorOffset1, 0, 1));
+        cloudColor = mix(colB, cloudColor, clamp(pow(transmittance * colorOffset2, 3), 0, 1));
+        return 0.5 + transmittance * 0.5 * cloudColor.xyz;
+}
+
+
 void main() {
+
+    // Some Parameters
+    float lightAbsorptionThroughCloud = 0.85;
+
+    // Get UV
+    ivec2 dim = imageSize(sourceImage);
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
+    vec2 screenPos = gl_GlobalInvocationID.xy - 0.5f * dim;
+
+    vec3 camLook = vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]);
+    vec3 camRight = vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]);
+    vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
+
+    vec3 rayDir = normalize(camLook
+        - camRight * cameraParam.pixelLength.x * screenPos.x
+        - camUp * cameraParam.pixelLength.y * screenPos.y);
+
+    vec3 cameraPos = camera.cameraPosition.xyz;
+    float cosAngle = dot(rayDir, lightDir);
+
+    float dstTravelled = 0;
+    float alpha = 1;
+    vec3 lighting = vec3(0, 0, 0);
+    const float sampleCount = 512;
+    float stepSize = 0.1;
+
+    vec2 rayToContainerInfo = rayBoxDst(boundsMin, boundsMax, cameraPos, (1 / rayDir));
+    float dstToBox = rayToContainerInfo.x; //相机到容器的距离
+    float dstInsideBox = rayToContainerInfo.y; //返回光线是否在容器中
+    vec3 entryPoint = cameraPos + rayDir * dstToBox;
+    float dstLimit = dstInsideBox; //目前场景没有其他物体所以不计算遮挡
+
+    vec3 rayPos = cameraPos;
+
+    // 步进优化by tx哥
+    float cloud_test = 0.0;
+    int zero_density_sample_count = 0;
+    float sampled_density_previous = -1.0;
+    
+    for (int j = 0; j < sampleCount; j++)
+    {    
+                        
+        if (dstTravelled < dstLimit)
+        {
+            rayPos = entryPoint + (rayDir * dstTravelled);
+            float density = sampleDensity(rayPos);
+        
+            if (density == 0.0 && sampled_density_previous == 0.0)
+            {
+                zero_density_sample_count++;
+            }
+        
+            if (zero_density_sample_count < 11 && density != 0.0)
+            {
+                // 累加密度
+                // 采样并计算光照
+                // 步进计数    
+                // float3 cloudLight = lightmarch(rayPos, dstTravelled);
+               // float3 cloudLight = lightmarchAlongCone(rayPos, stepSize, cosAngle);
+
+                vec3 cloudLight = vec3(0.8, 0.8, 0.8);
+                lighting += density * stepSize * alpha * cloudLight;
+                alpha *= exp(-density * stepSize * lightAbsorptionThroughCloud);                        
+            }
+            else // 如果不是，则将cloud_test设置为0以便回到”便宜“的采样
+            {
+                cloud_test = 0.0;
+                zero_density_sample_count = 0;
+            }
+            sampled_density_previous = density;
+        }  
+        dstTravelled += stepSize;
+    }
+
+
 	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-	imageStore(targetImage, storePos, vec4(0.3f, 0.7f, 0.2f, 1.f));
+	//imageStore(targetImage, storePos, vec4(0.3f, 0.7f, 0.2f, 1.f));
+    imageStore(targetImage, storePos, vec4(lighting, alpha));
 }
