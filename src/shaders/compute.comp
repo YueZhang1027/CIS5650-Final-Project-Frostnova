@@ -10,18 +10,17 @@
 
 // TODO: check go through cloud?
 // Atmosphere
-#define ATMOSPHERE_RADIUS 1000000.0
+#define ATMOSPHERE_RADIUS 3000000.0
 #define ATMOSPHERE_RADIUS_INNER ATMOSPHERE_RADIUS
 #define ATMOSPHERE_RADIUS_OUTER ATMOSPHERE_RADIUS * 1.02
 #define ATMOSPHERE_THICKNESS (ATMOSPHERE_RADIUS_OUTER - ATMOSPHERE_RADIUS_INNER) * 0.5
 
 // Sun, Light source
-#define SUN_LOCATION vec3(0.0, ATMOSPHERE_RADIUS_OUTER, -ATMOSPHERE_RADIUS_OUTER ) * 0.9f
+#define SUN_LOCATION vec3(0.0, ATMOSPHERE_RADIUS_OUTER, ATMOSPHERE_RADIUS_OUTER ) * 0.9f
 
 // Wind
 #define WIND_DIRECTION vec3(1.0f, 0.0f, 0.0f)
 #define CLOUD_SPEED 0.2f
-#define CLOUD_TOP_OFFSET 1.0f
 
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
@@ -100,7 +99,7 @@ vec3 SkewSamplePointWithWind(vec3 samplePoint, float height_fraction) {
     //skew in wind direction
     vec3 point = samplePoint;
     point += CLOUD_SPEED * (WIND_DIRECTION + height_fraction * vec3(0.0f, 0.1f, 0.0f)) 
-        * (time.totalTime + height_fraction * 200.f);
+        * (time.totalTime);
     return point;
 }
 
@@ -182,7 +181,7 @@ float GetBaseDensity(vec3 samplePoint, vec3 skewSamplePoint, float height) {
     float layerDensity = GetCloudLayerDensity(height, cloudType);
 
     // Sample low res shape
-    vec4 profileNoise = texture(profileCloudShape, 0.00002 * skewSamplePoint);
+    vec4 profileNoise = texture(profileCloudShape, 0.00005 * skewSamplePoint);
     float density = layerDensity * ValueRemapClamped(profileNoise.r, 0.3, 1.0, 0.0, 1.0);
     if (density < 0.0001) return 0.0f;
 
@@ -202,7 +201,7 @@ float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float 
     curl = 2.0 * curl - 1.0;
     skewSamplePoint += 2.0f * curlStrength * curl;
 
-    vec4 densityNoise = texture(detailCloudShape, 0.0004 * skewSamplePoint);
+    vec4 densityNoise = texture(detailCloudShape, 0.0003 * skewSamplePoint);
 	float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
     erosion = mix(erosion, 1.0 - erosion, clamp(height * 10.0, 0.0, 1.0));
 
@@ -285,7 +284,7 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 //--------------------------------------------------------
 void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, vec3 earthCenter, 
         out float accumDensity, out float transmittance) {
-    float stepSize = 0.05 * ATMOSPHERE_THICKNESS;
+    float stepSize = 0.04 * ATMOSPHERE_THICKNESS;
 
     // Lighting
     CalculateLightingSamples(ray);
@@ -433,7 +432,7 @@ void main()
     RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, accumDensity, transmittance);
 	
     accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (60.0 * vec3(max(0.0, transmittance)) + 0.08 * bgColor * exp(-transmittance));
+    vec3 cloudColor = (10.0 * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
 
     vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
