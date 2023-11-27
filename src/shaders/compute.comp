@@ -4,44 +4,23 @@
 #define WORKGROUP_SIZE 32
 
 #define PI 3.14159265
+#define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
 
-// Hard coded light direction
-vec3 _lightDir = vec3(0, -1, 0);
-vec3 _lightPos = vec3(0, 20, 0);
+// TODO: check go through cloud?
+// Atmosphere
+#define ATMOSPHERE_RADIUS 3000000.0
+#define ATMOSPHERE_RADIUS_INNER ATMOSPHERE_RADIUS
+#define ATMOSPHERE_RADIUS_OUTER ATMOSPHERE_RADIUS * 1.02
+#define ATMOSPHERE_THICKNESS (ATMOSPHERE_RADIUS_OUTER - ATMOSPHERE_RADIUS_INNER) * 0.5
 
-// Hard coded cloud boundary
-float _boundScale = 1;
-vec3 _boundsMin = vec3(-200, -25, -150) * _boundScale;
-vec3 _boundsMax = vec3(200, 25, 150) * _boundScale;
+// Sun, Light source
+#define SUN_LOCATION vec3(0.0, ATMOSPHERE_RADIUS_OUTER, ATMOSPHERE_RADIUS_OUTER ) * 0.9f
 
-// Cloud Shape Parameters
-float _shapeTiling = 0.001;
-float _detailTiling = 0.02;
-float _shapeSpeed = 0.02;
-float _detailSpeed = 0.3;
-float _heightWeight = 0.247;
-vec4 _shapeNoiseWeights = vec4(4, 19.9, -3.18, -18.4);   // Magic number...
-float _detailWeights = 5.5;
-
-// Cloud Lighting Parameters
-float _silverIntensity = 1.05;
-float _silverSpread = 1.14;
-float _eccentricity = 0.18;
-float _lightAbsorptionTowardSun = 1.38;
-float _lightAbsorptionThroughCloud = 0.85;
-float _darkness = 0.5;
-
-vec3 _colA = vec3(1, 0.92, 0.77);
-vec3 _colB = vec3(0, 0.09, 0.47);
-float _colorOffset1 = -11;
-float _colorOffset2 = 2.1;
-
-//TODO: Add Time
-float _Time = 0;
-
-
+// Wind
+#define WIND_DIRECTION vec3(1.0f, 0.0f, 0.0f)
+#define CLOUD_SPEED 0.2f
 
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
@@ -54,182 +33,370 @@ layout(set = 2, binding = 0) uniform CameraObject {
     vec4 cameraPosition;
 } camera;
 
+layout(set = 2, binding = 2) uniform CameraParamObject {
+    float halfTanFOV;
+    float aspectRatio;
+} cameraParam;
+
 layout(set = 2, binding = 1) uniform CameraObjectPrev {
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } cameraPrev;
 
-layout(set = 3, binding = 0) uniform sampler3D lowResCloudShape;
-layout(set = 3, binding = 1) uniform sampler3D hiResCloudShape;
+layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
+layout(set = 3, binding = 1) uniform sampler3D detailCloudShape;
 layout(set = 3, binding = 2) uniform sampler2D weatherMap;
+layout(set = 3, binding = 3) uniform sampler2D curlNoise;
 
 layout(set = 4, binding = 0) uniform TimeObject {
     float deltaTime;
     float totalTime;
 } time;
 
-float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax)
-{
-    return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
+// structs
+struct VoxelCloudModelingData {
+    float mDimensionalProfile;
+    float mDetailType;
+    float mDensityScale;
+};
+
+struct VoxelCloudDensitySamples {
+    float mProfile; // profile
+    float mFull;    // detail
+};
+
+struct CloudRenderingRaymarchInfo {
+    float mDistance;       // ray marching distance
+    float mCloudDistance;  // distance to cloud
+    float mStepSize;       // step size
+};
+
+struct Ray {
+	vec3 mOrigin;
+	vec3 mDirection;
+};
+
+struct Intersection {
+    vec3 mNormal;
+    vec3 mPoint;
+    float mTime;
+};
+
+//--------------------------------------------------------
+//					ATMOSPHERE FUNCTIONS
+//--------------------------------------------------------
+// Get the point projected to the inner atmosphere shell
+vec3 GetProjectedShellPoint(vec3 pos, vec3 center) {
+    return 0.5f * ATMOSPHERE_RADIUS * normalize(pos - center) + center;
 }
 
-vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir)
-{
-     vec3 t0 = (boundsMin - rayOrigin) * invRaydir;
-     vec3 t1 = (boundsMax - rayOrigin) * invRaydir;
-     vec3 tmin = min(t0, t1);
-     vec3 tmax = max(t0, t1);
-
-     float dstA = max(max(tmin.x, tmin.y), tmin.z); 
-     float dstB = min(tmax.x, min(tmax.y, tmax.z)); 
-
-     float dstToBox = max(0, dstA);
-     float dstInsideBox = max(0, dstB - dstToBox);
-     return vec2(dstToBox, dstInsideBox);
- }
-
-float sampleDensity(vec3 rayPos) 
-{
-     vec4 boundsCentre = vec4((_boundsMax + _boundsMin) * 0.5, 0);
-     vec3 size = _boundsMax - _boundsMin;
-     float speedShape = time.totalTime * _shapeSpeed;
-     float speedDetail =  time.totalTime * _detailSpeed;
-
-     vec3 uvwShape = rayPos * _shapeTiling + vec3(speedShape, speedShape * 0.2, 0);
-     vec3 uvwDetail = rayPos * _detailTiling + vec3(speedDetail, speedDetail * 0.2, 0);
-
-     vec2 uv = (size.xz * 0.5f + (rayPos.xz - boundsCentre.xz)) / max(size.x, size.z);
-     vec2 uvWeather = uv + vec2(speedShape * 0.4, 0);
-
-     vec4 weatherMap = texture(weatherMap, uvWeather);
-     vec4 shapeNoise = texture(lowResCloudShape, uvwShape);
-     vec4 detailNoise = texture(hiResCloudShape, uvwDetail);
-
-     // Edge 
-     const float containerEdgeFadeDst = 50;
-     float dstFromEdgeX = min(containerEdgeFadeDst, min(rayPos.x - _boundsMin.x, _boundsMax.x - rayPos.x));
-     float dstFromEdgeZ = min(containerEdgeFadeDst, min(rayPos.z - _boundsMin.z, _boundsMax.z - rayPos.z));
-     float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-
-     // Get desity height gradient for points
-     // TODO: change to CloudType version when we have CloudType map
-     float gMin = remap(weatherMap.x, 0, 1, 0.1, 0.6);
-     float gMax = remap(weatherMap.x, 0, 1, gMin, 0.9);
-     float heightPercent = (rayPos.y - _boundsMin.y) / size.y;
-     float heightGradient = clamp(remap(heightPercent, 0.0, gMin, 0, 1), 0, 1) 
-                          * clamp(remap(heightPercent, 1, gMax, 0, 1), 0, 1);
-     float heightGradient2 = clamp(remap(heightPercent, 0.0, weatherMap.r, 1, 0), 0, 1) 
-                           * clamp(remap(heightPercent, 0.0, gMin, 0, 1), 0, 1);
-     heightGradient = clamp(mix(heightGradient, heightGradient2, _heightWeight), 0, 1);
-     heightGradient *= edgeWeight;
-
-     vec4 normalizedShapeWeights = _shapeNoiseWeights / dot(_shapeNoiseWeights, vec4(1));
-     float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
-     float baseShapeDensity = shapeFBM;
-
-     if (baseShapeDensity > 0)
-     {
-         float detailFBM = pow(detailNoise.r, _detailWeights);
-         float oneMinusShape = 1 - baseShapeDensity;
-         float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-         float cloudDensity = baseShapeDensity - detailFBM * detailErodeWeight;
-         return clamp(cloudDensity, 0, 1);
-     }
-     return 0; 
+float GetRelativeHeight(vec3 pos, vec3 projectedPos, float thickness) {
+    return clamp(length(pos - projectedPos) / thickness, 0.0f, 1.0f);
 }
 
-// Lighting functions
-
-float getHeightFractionForPoint(vec3 p)
-{   
-    float heightFraction = (p.z - _boundsMin.y) / (_boundsMax.y - _boundsMin.y);
-    return clamp(heightFraction, 0, 1);
+vec3 SkewSamplePointWithWind(vec3 samplePoint, float height_fraction) {
+    //skew in wind direction
+    vec3 point = samplePoint;
+    point += CLOUD_SPEED * (WIND_DIRECTION + height_fraction * vec3(0.0f, 0.1f, 0.0f)) 
+        * (time.totalTime);
+    return point;
 }
 
-float henyeyGreenstein(float cosAngle, float eccentricity)
-{
-    float g2 = eccentricity * eccentricity;
-    return ((1.0 - g2) / pow((1.0 + g2 - 2.0 * eccentricity * cosAngle), 1.5)) / (4.0 * PI);
+//--------------------------------------------------------
+//					TOOL BOX FUNCTIONS
+//--------------------------------------------------------
+float ValueRemap(float inValue, float inOldMin, float inOldMax, float inMin, float inMax) {
+    float old_min_max_range = (inOldMax - inOldMin);
+    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0.0f, 1.0f);
+    return inMin + (clamped_normalized * (inMax - inMin));
 }
 
-float getDirectScatterProbability(float cosTheta)
-{
-    return max(henyeyGreenstein(cosTheta, _eccentricity), _silverIntensity * henyeyGreenstein(cosTheta, 0.99 - _silverSpread));
+float ValueRemapClamped(float inValue, float inOldMin, float inOldMax, float inMin, float inMax) {
+    return clamp(ValueRemap(inValue, inOldMin, inOldMax, inMin, inMax), inMin, inMax);
 }
 
-float getAttenuationProbability(float sampleDensity)
-{
-    return max(exp(-sampleDensity), (exp(-sampleDensity * 0.25) * 0.7));
+float ValueErosion(float inValue, float inOldMin) {
+    // derrived from Set-Range, this function uses the oldMin to erode or inflate the input value. - inValues inflate while + inValues erode
+    float old_min_max_range = (1.0 - inOldMin);
+    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0.0f, 1.0f);
+    return (clamped_normalized);
 }
 
-float getInScatterProbability(vec3 p, float dsLoded)
-{
-    float heightFraction = getHeightFractionForPoint(p);
-    float depthProbability = 0.05 + pow(dsLoded, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
-    float verticalProbability = pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 0.8);
-    float inScatterProbability = depthProbability * verticalProbability;
-
-    return inScatterProbability;
+float GetFractionFromValue(float inValue, float inMin, float inMax) {
+    return clamp((inValue - inMin) / (inMax - inMin), 0.0f, 1.0f);
 }
 
-float getLightEnergy(vec3 p, float dl, float dsLoded, float cosAngle)
-{
-    float attenuationProbability = getAttenuationProbability(dl);
-    float inScatterProbability = getInScatterProbability(p, dsLoded);
-    float phaseProbability = getDirectScatterProbability(cosAngle);
-    float lightEnergy = attenuationProbability * inScatterProbability * phaseProbability;
+//--------------------------------------------------------
+//					Density Sample Functions
+//--------------------------------------------------------
 
-    return lightEnergy;
+float GetUprezzedVoxelCloudDensity(vec3 samplePoint, float profileDensity, float densityScale) {
+    // Step1 - Apply wind offset
+    //samplePoint -= vec3(cCloudWindOffset.x, cCloudWindOffset.y, 0.0) * voxel_cloud_animation_speed;
+
+    // Step2 - Sample noise
+
+    // Step3 - Define Detail Erosion
+
+    //       Wispy
+
+    //       Billowy
+
+    float uprezzed_density;
+
+    // Step4 - Apply Detail Erosion
+
+    return uprezzed_density;
 }
 
-vec3 lightmarch(vec3 p)
-{
-    vec3 dirToLight = _lightPos; 
-    float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, 1 / dirToLight).y;
-    float stepSize = dstInsideBox / 8;
-    float totalDensity = 0;
 
-    for (int step = 0; step < 8; step++)
-    { 
-        p += dirToLight * stepSize; 
-        totalDensity += max(0, sampleDensity(p));
+VoxelCloudDensitySamples GetVoxelCloudDensitySamples(vec3 samplePoint, Ray ray) {
+    VoxelCloudDensitySamples densitySamples;
+    densitySamples.mProfile = 0.0f;
+    densitySamples.mFull = 0.0f;
+
+    
+
+    return densitySamples;
+}
+
+float GetCloudLayerDensity(float relativeHeight, float cloudType) {
+    relativeHeight = clamp(relativeHeight, 0, 1);
+    
+    float cumulus = max(0.0, ValueRemap(relativeHeight, 0.0, 0.2, 0.0, 1.0) * ValueRemap(relativeHeight, 0.7, 0.9, 1.0, 0.0));
+    float stratocumulus = max(0.0, ValueRemap(relativeHeight, 0.0, 0.2, 0.0, 1.0) * ValueRemap(relativeHeight, 0.2, 0.7, 1.0, 0.0)); 
+    float stratus = max(0.0, ValueRemap(relativeHeight, 0.0, 0.1, 0.0, 1.0) * ValueRemap(relativeHeight, 0.2, 0.3, 1.0, 0.0)); 
+
+    float d1 = mix(stratus, stratocumulus, clamp(cloudType * 2.0, 0.0, 1.0));
+    float d2 = mix(stratocumulus, cumulus, clamp((cloudType - 0.5) * 2.0, 0.0, 1.0));
+    return mix(d1, d2, cloudType);
+}
+
+
+float GetBaseDensity(vec3 samplePoint, vec3 skewSamplePoint, float height) {
+    // Weather map and type
+    vec3 cloudInfo = texture(weatherMap, samplePoint.xz * 0.00001).rgb; // TODO: check freq
+    float cloudType = cloudInfo.b; // 0 = stratus, 1 = cumulus, .5 = stratocumulus
+    float layerDensity = GetCloudLayerDensity(height, cloudType);
+
+    // Sample low res shape
+    vec4 profileNoise = texture(profileCloudShape, 0.00005 * skewSamplePoint);
+    float density = layerDensity * ValueRemapClamped(profileNoise.r, 0.3, 1.0, 0.0, 1.0);
+    if (density < 0.0001) return 0.0f;
+
+    // Calculate cloud coverage
+    float coverage = pow(cloudInfo.r, clamp(ValueRemap(height, 0.7, 0.8, 1.0, 0.8), 0.8, 1.0)); // lerp(1.0, 0.5, anvil_bias)
+
+    float erosion = 0.625 * profileNoise.g + 0.25 * profileNoise.b + 0.125 * profileNoise.w;
+    erosion = ValueRemapClamped(erosion, coverage, 1.0, 0.0, 1.0);
+    density = ValueRemapClamped(density, erosion, 1.0, 0.0, 1.0);
+
+    return density;
+}
+
+float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float curlStrength) {
+    // Curl noise on the bottom
+    vec3 curl = texture(curlNoise, skewSamplePoint.xz * 0.0001).rgb;
+    curl = 2.0 * curl - 1.0;
+    skewSamplePoint += 2.0f * curlStrength * curl;
+
+    vec4 densityNoise = texture(detailCloudShape, 0.0003 * skewSamplePoint);
+	float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
+    erosion = mix(erosion, 1.0 - erosion, clamp(height * 10.0, 0.0, 1.0));
+
+    return ValueRemapClamped(density, erosion, 1.0, 0.0, 1.0);
+}
+
+//--------------------------------------------------------
+//					Lighting Functions
+//--------------------------------------------------------
+vec3[] samples = vec3[6](
+	 vec3(0, 0.6, 0),
+     vec3(0, 0.5, 0.05),
+     vec3(0.1, 0.75, 0),
+     vec3(0.2, 2.5, 0.3),
+     vec3(0, 6, 0),
+     vec3(-0.1, 1, -0.2)
+);
+
+void CalculateLightingSamples(Ray ray) {
+    const vec3 lightDir = normalize(SUN_LOCATION - ray.mOrigin);
+
+    vec3 maxCompUnitVector;
+    if(abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2])) {
+        maxCompUnitVector = vec3(abs(lightDir[0]), 0.0, 0.0);
     }
-  
-    float lightEnergy = exp(-totalDensity * _lightAbsorptionTowardSun);
-    vec3 white = vec3(1, 1, 1);
-    vec3 cloudColor = mix(_colA, white, clamp(lightEnergy * _colorOffset1, 0, 1));
-    cloudColor = mix(_colB, cloudColor, clamp(pow(lightEnergy * _colorOffset2, 3), 0, 1));
-    return _darkness + lightEnergy * _darkness * cloudColor;
+    else if(abs(lightDir[1]) > abs(lightDir[0]) && abs(lightDir[1]) > abs(lightDir[2])) {
+        maxCompUnitVector = vec3(0.0, abs(lightDir[1]), 0.0);
+    }
+    else {
+        maxCompUnitVector = vec3(0.0, 0.0, abs(lightDir[2]));
+    }
+
+    vec3 zComponent = cross(lightDir, maxCompUnitVector);
+    vec3 xComponent = cross(zComponent, lightDir);
+    mat3 sunRotMatrix = mat3(xComponent, lightDir, zComponent);
+
+    for (int i = 0; i < 6; i++) {
+		samples[i] = sunRotMatrix * samples[i];
+	}
 }
 
-vec3 lightmarchAlongCone(vec3 p, float stepSize, float cosAngle)
-{
-    vec3 dirToLight = _lightPos; 
-    vec3 lightStep = stepSize * dirToLight;
-    float coneRadius = 1.0;
-    float coneStep = 1.0 / 6;
-    float densityAlongCone = 0.0;
-    float lod = 0.0;
-    float lodStride = 1.0 / 6;
-  
-    float totalDensity = 0;
+float HG(float cosTheta, float eccentricity) {
+    float inv = 1.0 / pow(1.0 - 2.0 * eccentricity * cosTheta + eccentricity * eccentricity, 1.5);
+    return ONE_OVER_FOURPI * ((1.0 - eccentricity * eccentricity) * inv);
+}
 
-    for (int i = 0; i <= 6; i++)
-    {
-        densityAlongCone += max(0, sampleDensity(p));
-        p += lightStep;
-        coneRadius += coneStep;
-        lod += lodStride;
+void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosTheta, float henyeyGreenstein, float baseDensity, float height,
+    float accumDensity, inout float transmittance) {
+    vec3 color = vec3(0.f);
+    float lightDensity = 0.0f;
+
+    for (int i = 0; i < 6; i++) {
+        vec3 lightPos = samplePos + (stepSize * samples[i] * float(i));
+        vec3 lightProj = GetProjectedShellPoint(lightPos, earthCenter);
+
+        float lightHeight = GetRelativeHeight(lightPos, lightProj, ATMOSPHERE_THICKNESS);
+
+        vec3 skewSamplePos = SkewSamplePointWithWind(lightPos, lightHeight);
+
+        float loDensity = GetBaseDensity(lightPos, skewSamplePos, lightHeight);
+        if (loDensity > 0.0f) {
+            // float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float curlStrength)
+			float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
+			lightDensity += detailDensity;
+		}
     }
-  
-    float lightEnergy = getLightEnergy(p, densityAlongCone, lod, cosAngle);
-  
-    lightEnergy = exp(-lightEnergy * _lightAbsorptionTowardSun);
-    vec3 white = vec3(1, 1, 1);
-    vec3 cloudColor = mix(_colA, white, clamp(lightEnergy * _colorOffset1, 0, 1));
-    cloudColor = mix(_colB, cloudColor, clamp(pow(lightEnergy * _colorOffset2, 3), 0, 1));
-    return _darkness + lightEnergy * _darkness * cloudColor;
+
+    float beersLaw = exp(-lightDensity);
+    float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * lightDensity));
+    beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
+
+    float inScatter = 0.09 + pow(baseDensity, ValueRemap(height, 0.3, 0.85, 0.5, 2.0));
+
+    transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0f - accumDensity));
+}
+
+
+//--------------------------------------------------------
+//					Raymarching Functions
+//--------------------------------------------------------
+void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, vec3 earthCenter, 
+        out float accumDensity, out float transmittance) {
+    float stepSize = 0.04 * ATMOSPHERE_THICKNESS;
+
+    // Lighting
+    CalculateLightingSamples(ray);
+    float cosTheta = dot(ray.mDirection, normalize(SUN_LOCATION - ray.mOrigin));
+    float henyeyGreenstein = HG(cosTheta, 0.6f); // TODO: MANIPULATE
+
+    accumDensity = 0.0f;
+
+    bool noHits = true;
+    int misses = 0;
+    int steps = 0;
+
+    for (float t = start_t; t < end_t; t += stepSize) {
+        vec3 pos = ray.mOrigin + ray.mDirection * t;
+        vec3 proj = GetProjectedShellPoint(pos, earthCenter);
+        float relativeHeight = GetRelativeHeight(pos, proj, ATMOSPHERE_THICKNESS);
+
+        vec3 skewSamplePoint = SkewSamplePointWithWind(pos, relativeHeight);
+
+        // Sample density
+        float profileDensity = GetBaseDensity(pos, skewSamplePoint, relativeHeight);
+
+        if (profileDensity > 0.0f) {
+            misses = 0;
+            if (noHits) {
+                //start high-resolution march
+                t -= stepSize;
+                stepSize *= 0.3;
+                noHits = false;
+                continue; // go back half a step
+            }
+
+			// Get detail density for cloud erosion
+            float detailDensity = GetDetailDensity(skewSamplePoint, profileDensity, relativeHeight, stepSize);
+            if (detailDensity < 0.0001f) continue;
+
+            SampleLight(pos, stepSize, earthCenter, cosTheta, henyeyGreenstein, profileDensity, relativeHeight, accumDensity, transmittance);
+            accumDensity += detailDensity;
+		} else if (!noHits) {
+            misses++;
+            if (misses >= 10) {
+                noHits = true; // revert to low resolution marching
+                stepSize /= 0.3;
+            }
+        }
+
+        ++steps;
+        if (accumDensity > 0.999f) {
+            accumDensity = 1.0f;
+            break;
+        }
+    }
+}
+
+Ray GenerateRay(vec2 uv) {
+    Ray ray;
+
+    vec3 camLook =   normalize(vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]));
+    vec3 camRight =  normalize(vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]));
+    vec3 camUp =     normalize(vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]));
+
+    vec2 screenPoint = uv * 2.0 - 1.0; // [-1, 1] -> [0, 1]
+    // TODO: Jitter pointx
+
+    vec3 cameraPos = camera.cameraPosition.xyz;
+    vec3 refPoint = cameraPos - camLook;
+    vec3 p = refPoint 
+             + cameraParam.aspectRatio * screenPoint.x * cameraParam.halfTanFOV * camRight 
+             - screenPoint.y * cameraParam.halfTanFOV * camUp;
+
+    ray.mOrigin = cameraPos;
+    ray.mDirection = normalize(p - cameraPos);
+
+    return ray;
+}
+
+Intersection RaySphereIntersection(Ray ray, vec3 sphereCenter, float sphereRadius) {
+	Intersection isect;
+    isect.mTime = -1.0f;
+    isect.mPoint = vec3(0.0);
+    isect.mNormal = vec3(0.0, 1.0, 0.0);
+
+    vec3 oc = ray.mOrigin - sphereCenter;
+    oc /= sphereRadius;
+
+    float a = dot(ray.mDirection, ray.mDirection);
+    float b = 2.0f * dot(oc, ray.mDirection);
+    float c = dot(oc, oc) - 0.25f;
+    float discriminant = b * b - 4.0f * a * c;
+
+    if (discriminant < 0.0f) {
+        // no intersection
+        return isect;
+    } 
+
+    float t = (-b - sqrt(discriminant)) / (2.0f * a);
+    if (t < 0.0f) {
+        t = (-b + sqrt(discriminant)) / (2.0f * a);
+    }
+
+    if (t >= 0.0) {
+        vec3 p = vec3(oc + t * ray.mDirection);
+        isect.mNormal = normalize(p);
+
+        p *= sphereRadius;
+        p += sphereCenter;
+
+        isect.mPoint = p;
+        isect.mTime = length(p - oc);
+    }
+
+    return isect;
 }
 
 
@@ -237,98 +404,37 @@ void main()
 {
     // Get UV
     ivec2 dim = imageSize(sourceImage);
+
+    // TODO: 1/16 of the pixels after reproject compute shader
+
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
-    vec2 screenPoint = uv * 2.0 - 1.0;
+    Ray ray = GenerateRay(uv);
 
-    // Calculate ray start point, ray direction, and raymarching distance limit
+    // Background color
+    vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
 
-    vec3 camLook = vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]);
-    vec3 camRight = vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]);
-    vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
+    // below horizon, return
+    if (ray.mDirection.y < 0.0f) {
+		imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), vec4(bgColor, 1.0f));
+		return;
+	}
 
-    vec3 cameraPos = camera.cameraPosition.xyz;
-    vec3 refPoint = cameraPos - camLook;
-    float tanFov = tan(0.5f * DEG2RAD * 45.0f);      // fov = 45
-    vec3 p = refPoint 
-             + (1920.0f / 1080.0f) * screenPoint.x * tanFov * camRight 
-             - screenPoint.y * tanFov * camUp;
-    vec3 rayDir = normalize(p - cameraPos);
+    // Find start and end point of raymarching
+    vec3 earthCenter = ray.mOrigin;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5f;
 
-    vec2 rayToContainerInfo = rayBoxDst(_boundsMin, _boundsMax, cameraPos, (1 / rayDir));
-    float dstToBox = rayToContainerInfo.x; 
-    float dstInsideBox = rayToContainerInfo.y; 
-    vec3 entryPoint = cameraPos + rayDir * dstToBox;
-    float dstLimit = dstInsideBox; 
+    Intersection atmosphereInnerIsect = RaySphereIntersection(ray, earthCenter, ATMOSPHERE_RADIUS_INNER);
+	Intersection atmosphereOuterIsect = RaySphereIntersection(ray, earthCenter, ATMOSPHERE_RADIUS_OUTER);
 
-    float cosAngle = dot(rayDir, _lightDir);
+    // Ray march
+    float transmittance = 1.0f;
+    float accumDensity = 0.0f;
+    RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, accumDensity, transmittance);
+	
+    accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
+    vec3 cloudColor = (10.0 * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
 
-    // Ray marching
-    float dstTravelled = 0;
-    float alpha = 1;
-    vec3 lighting = vec3(0, 0, 0);
-    const float sampleCount = 512;
-    float stepSize = 0.1;
-    vec3 rayPos = cameraPos;
-
-    // For raymarch optimization
-    float cloudTest = 0.0;
-    int zeroDensitySampleCount = 0;
-    float sampledDensityPrevious = -1.0;
-    
-    for (int j = 0; j < sampleCount; j++)
-    {    
-    // if (cloudTest > 0.0)
-    // {      
-    
-        if (dstTravelled < dstLimit)
-        {
-            rayPos = entryPoint + (rayDir * dstTravelled);
-            float density = sampleDensity(rayPos);
-        
-            if (density == 0.0 && sampledDensityPrevious == 0.0)
-            {
-                zeroDensitySampleCount++;
-            }
-        
-            if (zeroDensitySampleCount < 11 && density != 0.0)
-            { 
-               // vec3 cloudLight = lightmarchAlongCone(rayPos, stepSize, cosAngle);
-                vec3 cloudLight = lightmarch(rayPos);
-                lighting += density * stepSize * alpha * cloudLight;
-                alpha *= exp(-density * stepSize * _lightAbsorptionThroughCloud);                        
-            }
-            else 
-            {
-                cloudTest = 0.0;
-                zeroDensitySampleCount = 0;
-            }
-            sampledDensityPrevious = density;
-        }  
-        dstTravelled += stepSize;
-
-
-    //  }
-    //  else
-    //  {
-    //      rayPos = entryPoint + (rayDir * dstTravelled);
-    //      cloudTest = sampleDensity(rayPos);
-    //      if (cloudTest == 0.0)
-    //      {
-    //          dstTravelled += stepSize * 2;
-    //      }
-    //      else 
-    //      {
-    //          dstTravelled -= stepSize;
-    //      }
-    //   }
-
-    }
-
-
-	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-    vec3 col = vec3(0.6, 0.75, 0.8);
-    col *= alpha;
-    col += lighting;
-    imageStore(targetImage, storePos, vec4(col, 1));
-   // imageStore(targetImage, storePos, vec4(lighting, alpha));
+    vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
+    finalColor.a *= max(1.0 - accumDensity, 0.0);
+    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }

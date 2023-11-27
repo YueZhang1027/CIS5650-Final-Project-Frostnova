@@ -254,7 +254,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
 
     // Image - Compute shader images
-    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture);
+    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
@@ -283,6 +283,7 @@ void Renderer::CreateFrameResources() {
     hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
     lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
     weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
+    curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---

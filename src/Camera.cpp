@@ -13,8 +13,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     theta = 0.0f;
     phi = 0.0f;
 
-    glm::vec3 eye = glm::vec3(0.0f, 300.0f, 0.0f);
-    cameraBufferObject.viewMatrix = glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    cameraBufferObject.viewMatrix = glm::lookAt(eye, glm::vec3(0.0f, 30.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
     cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);
@@ -33,13 +33,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     memcpy(prevCamBuffer.mappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
 
     // Create a buffer for camera parameters
-    float fovy = 45.0f;
-    float yscaled = tan(fovy * (PI / 180));
-    float xscaled = (yscaled * 1920.f) / 1080.f;
-    float fovx = (atan(xscaled) * 180) / PI;
-    cameraParamBufferObject.fov = glm::vec2(fovx, fovy);
-    cameraParamBufferObject.pixelLength = glm::vec2(2 * xscaled / (float)1920.f,
-        2 * yscaled / (float)1080.f);
+    cameraParamBufferObject.aspectRatio = aspectRatio;
+    cameraParamBufferObject.halfTanFOV = tan(glm::radians(45.0f / 2.0f));
 
     cameraParamBuffer.MapMemory(device, sizeof(CameraParamBufferObject));
     memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));

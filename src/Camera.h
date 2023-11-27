@@ -18,8 +18,8 @@ struct CameraBufferObject {
 };
 
 struct CameraParamBufferObject {
-    glm::vec2 fov;
-    glm::vec2 pixelLength;
+    float halfTanFOV;
+    float aspectRatio;
 };
 
 class Camera {

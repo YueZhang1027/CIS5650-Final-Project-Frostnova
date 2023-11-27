@@ -24,11 +24,11 @@ vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
 void main() {
     vec3 col = texture(texColor, fragTexCoord).xyz;
 
-    // float whitepoint = 1.0;
-    // col = tonemap(col, 0.7, 1.0 / 2.2, whitepoint);
-    // 
-    // float vignette = dot(fragTexCoord - 0.5, fragTexCoord - 0.5);
-    // 
-    // col = mix(col, vec3(0.1, 0.05, 0.13), vignette);
+    float whitepoint = 1.0;
+    col = tonemap(col, 0.7, 1.0 / 2.2, whitepoint);
+    
+    float vignette = dot(fragTexCoord - 0.5, fragTexCoord - 0.5);
+    
+    col = mix(col, vec3(0.1, 0.05, 0.13), vignette);
     outColor = vec4(col, 1.0);
 }
