@@ -6,6 +6,10 @@
 #include "Scene.h"
 #include "Image.h"
 
+#include "GUIManager.h"
+
+#define ENABLE_IMGUI 1
+
 Device* device;
 SwapChain* swapChain;
 Renderer* renderer;
