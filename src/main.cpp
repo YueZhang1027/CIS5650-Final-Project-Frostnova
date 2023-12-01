@@ -6,6 +6,10 @@
 #include "Scene.h"
 #include "Image.h"
 
+#include "GUIManager.h"
+
+#define ENABLE_IMGUI 1
+
 Device* device;
 SwapChain* swapChain;
 Renderer* renderer;
@@ -91,6 +95,8 @@ int main() {
     swapChain = device->CreateSwapChain(surface, 5); // TODO: check numBuffers
     // the length of the array is equal to the total number of render passes - 1
 
+    // ImGuiManager::InitImGui(GetGLFWWindow(), surface, device);
+
     camera = new Camera(device, 1920.f / 1080.f);
 
     Scene* scene = new Scene(device);
@@ -102,8 +108,10 @@ int main() {
 
     while (!ShouldQuit()) {
         glfwPollEvents();
-        renderer->UpdateUniformBuffers();
         renderer->Frame();
+        renderer->UpdateUniformBuffers();
+        
+        // ImGuiManager::RenderImGui();
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());

@@ -3,6 +3,8 @@ file(GLOB SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/shaderprogram/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shaderprogram/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.h
 )
 
 file(GLOB IMAGES

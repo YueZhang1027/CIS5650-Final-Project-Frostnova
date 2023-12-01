@@ -6,10 +6,7 @@
 #include "Camera.h"
 
 #include "Image.h"
-#include "shaderprogram/ReprojectShader.h"
-#include "shaderprogram/ComputeShader.h"
-#include "shaderprogram/PostShader.h"
-
+#include "shaderprogram/ShaderProgramIncludes.h"
 
 class Renderer {
 public:

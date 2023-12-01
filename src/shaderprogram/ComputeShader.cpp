@@ -3,6 +3,7 @@
 ComputeShader::ComputeShader(Device* device, SwapChain* swapchain, VkRenderPass* renderPass)
 	: ShaderProgram(device, swapchain, renderPass) {
 	CreateShaderProgram();
+	swapBuffers = false;
 }
 
 void ComputeShader::CreateShaderProgram() {
