@@ -106,8 +106,8 @@ int main() {
 
     while (!ShouldQuit()) {
         glfwPollEvents();
-        renderer->UpdateUniformBuffers();
         renderer->Frame();
+        renderer->UpdateUniformBuffers();
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());
