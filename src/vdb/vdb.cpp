@@ -244,6 +244,11 @@ bool VDB::loadExt()
     return true;
 }
 
+void VDB::setPointChannel(int _channel)
+{
+    m_currentActiveChannelPoints = _channel;
+}
+
 void VDB::initParams()
 {
     m_numChannels = 0;
@@ -305,6 +310,70 @@ bool VDB::loadBBox()
     return true;
 }
 
+bool VDB::loadMesh()
+{
+    openvdb::GridPtrVec::const_iterator pBegin = m_grid->begin();
+    openvdb::GridPtrVec::const_iterator pEnd = m_grid->end();
+
+    m_numPoints.resize(0);
+
+    while (pBegin != pEnd) {
+        if ((*pBegin)) {
+            m_numPoints.push_back((*pBegin)->activeVoxelCount());
+        }
+        ++pBegin;
+    }
+
+    // points found
+
+    m_vdbGridsInitialized = true;
+    // TODO
+    // m_vdbGrids            = new std::vector<VAO>;
+    // m_vdbGrids->resize(0);
+
+    // TODO
+    m_channelExtremes = new std::vector<BBoxBare>;
+    m_channelExtremes->resize(0);
+    m_extremesInit = true;
+
+    // now to actually load in the values - for now to test I will load in the
+    // colours to the normals vector I have a feeling that in the future I may
+    // need to have a couple of VAO's depending on what elements I am drawing or
+    // at least some more vectors somewhere to store some data for now I will only
+    // load in the positions and colours
+
+    pBegin = m_grid->begin();
+    pEnd = m_grid->end();
+
+    m_channel = 0;
+    setPointChannel(m_channel);
+    // TODO
+    m_channelValueData = new std::vector<openvdb::Vec4f>;
+    m_channelValueData->resize(0);
+
+    while (pBegin != pEnd) {
+        if ((*pBegin)) {
+            float loadFactor = m_loadPercentFactor * 0.01f;
+            int numLoadedPoints = (int)((float)m_numPoints[m_channel] * loadFactor);
+
+            // prevent any seg faulting from rounding issues from float/int maths
+            if (numLoadedPoints > m_numPoints.at(m_channel)) {
+                numLoadedPoints = m_numPoints.at(m_channel);
+            }
+
+            m_s.push_back(float((m_numPoints.at(m_channel)) / (numLoadedPoints)));
+            // TODO
+            // work out the type of grid and then get values
+            processTypedGrid((*pBegin));
+        }
+        ++pBegin;
+        ++m_channel;
+        setPointChannel(m_channel);
+    }
+
+    return true;
+}
+
 bool VDB::loadVDBTree()
 {
     openvdb::GridPtrVec::const_iterator pBegin = m_grid->begin();
@@ -330,6 +399,10 @@ void VDB::pushBackVDBVert(std::vector<vDat>* _v, openvdb::Vec3f _point, vDat _ve
     _vert.y = _point.y();
     _vert.z = _point.z();
     _v->push_back(_vert);
+}
+
+void VDB::processTypedGrid(openvdb::GridBase::Ptr grid)
+{
 }
 
 void VDB::processTypedTree(openvdb::GridBase::Ptr grid)
