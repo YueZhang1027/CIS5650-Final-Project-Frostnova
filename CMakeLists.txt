@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 2.8.12)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
+if(WIN32)
+  message(STATUS "Using system: Windows")
+  SET(Vcpkg_ROOT "C:\\tools\\vcpkg" CACHE STRING "Root dir for Vcpkg")
+  message(STATUS "Using Vcpkg_ROOT: ${Vcpkg_ROOT}")
+  set(CMAKE_TOOLCHAIN_FILE "${Vcpkg_ROOT}\\scripts\\buildsystems\\vcpkg.cmake")
+endif(WIN32)
+if(UNIX AND NOT APPLE)
+  message(STATUS "Using system: Linux")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/lib/cmake/OpenVDB")
+endif(UNIX AND NOT APPLE)
+
 project(cis565_final_project_vulkan_cloud_rendering)
 
 OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
