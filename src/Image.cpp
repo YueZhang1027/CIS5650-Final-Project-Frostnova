@@ -1,5 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#include <openvdb/openvdb.h>
 
 #include "Image.h"
 #include "Device.h"
@@ -356,6 +357,10 @@ void Image::FromFiles(Device* device, VkCommandPool commandPool, const char* pat
     // No need for staging buffer anymore
     vkDestroyBuffer(device->GetVkDevice(), stagingBuffer, nullptr);
     vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
+}
+
+void Image::FromVDBFile(Device* device, VkCommandPool commandPool, const char* path, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+{
 }
 
 Texture* Image::CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format) {
