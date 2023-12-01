@@ -1,11 +1,19 @@
 #pragma once
 
+#define GLFW_INCLUDE_VULKAN
+
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_glfw.h"
-#include "ImGui/imgui_impl_opengl3.h"
+#include "ImGui/imgui_impl_vulkan.h"
+
+#include "Instance.h"
+#include "Device.h"
 
 namespace ImGuiManager {
-	void InitImGui(GLFWwindow* window);
+	void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, Device* device, int width, int height);
+	void InitImGui(GLFWwindow* window, VkSurfaceKHR surface, Device* device);
+	void InitDescriptorPool(Device* device);
 	void RenderImGui();
+	void CleanUp(Device* device);
 }
 
