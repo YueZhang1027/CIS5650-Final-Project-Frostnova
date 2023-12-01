@@ -20,6 +20,7 @@ struct CameraBufferObject {
 struct CameraParamBufferObject {
     float halfTanFOV;
     float aspectRatio;
+    int pixelOffset; // [0 - 16)
 };
 
 class Camera {
@@ -47,4 +48,5 @@ public:
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePrevBuffer();
+    void UpdatePixelOffset();
 };

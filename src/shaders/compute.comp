@@ -36,6 +36,7 @@ layout(set = 2, binding = 0) uniform CameraObject {
 layout(set = 2, binding = 2) uniform CameraParamObject {
     float halfTanFOV;
     float aspectRatio;
+    int pixelOffset;
 } cameraParam;
 
 layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
@@ -401,8 +402,9 @@ void main()
     ivec2 dim = imageSize(sourceImage);
 
     // TODO: 1/16 of the pixels after reproject compute shader
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
 
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
+    vec2 uv = vec2(pixel) / dim; 
     Ray ray = GenerateRay(uv);
 
     // Background color
@@ -410,7 +412,7 @@ void main()
 
     // below horizon, return
     if (ray.mDirection.y < 0.0f) {
-		imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), vec4(bgColor, 1.0f));
+		imageStore(targetImage, pixel, vec4(bgColor, 1.0f));
 		return;
 	}
 
@@ -431,5 +433,5 @@ void main()
 
     vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
-    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+    imageStore(targetImage, pixel, finalColor);
 }

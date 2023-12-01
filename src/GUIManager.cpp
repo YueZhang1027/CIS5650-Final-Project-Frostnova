@@ -4,7 +4,7 @@ ImGuiIO* io = nullptr;
 ImGuiWindowFlags windowFlags = ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
 bool ui_hide = false;
 
-void ImGui::InitImGui(GLFWwindow* window) {
+void ImGuiManager::InitImGui(GLFWwindow* window) {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	io = &ImGui::GetIO(); (void)io;
@@ -13,7 +13,7 @@ void ImGui::InitImGui(GLFWwindow* window) {
 	ImGui_ImplOpenGL3_Init("#version 120");
 }
 
-void ImGui::RenderImGui() {
+void ImGuiManager::RenderImGui() {
 	// mouseOverImGuiWinow = io->WantCaptureMouse;
 
 	ImGui_ImplOpenGL3_NewFrame();

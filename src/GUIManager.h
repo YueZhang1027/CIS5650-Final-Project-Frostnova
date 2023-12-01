@@ -4,7 +4,7 @@
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_opengl3.h"
 
-namespace ImGui {
+namespace ImGuiManager {
 	void InitImGui(GLFWwindow* window);
 	void RenderImGui();
 }

@@ -396,12 +396,18 @@ void Renderer::RecordComputeCommandBuffer() {
         }
 
         // Reproject
-        //reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
-        computeShader->BindShaderProgram(computeCommandBuffers[i]);
+        reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
         vkCmdDispatch(computeCommandBuffers[i],
             static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+
+        computeShader->BindShaderProgram(computeCommandBuffers[i]);
+        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             1);
 
         // ~ End recording ~
@@ -523,6 +529,7 @@ void Renderer::RecordOffscreenCommandBuffers() {
 void Renderer::UpdateUniformBuffers() {
     scene->UpdateTime(); // time
     camera->UpdatePrevBuffer(); // camera prev
+    camera->UpdatePixelOffset(); // camera pixel offset
 }
 
 void Renderer::Frame() {
