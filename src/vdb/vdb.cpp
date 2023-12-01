@@ -190,6 +190,41 @@ void VDB::openFile(std::string _file) {
     }
 }
 
+bool VDB::loadBasic()
+{
+    if (!m_initialised) {
+        std::cerr << "Unable to load data as OpenVDB has not been initialised"
+            << std::endl;
+        return false;
+    }
+
+    if (!m_fileRead) {
+        std::cerr << "Unable to load data as no VDB has been opened or read"
+            << std::endl;
+        return false;
+    }
+
+    if (!loadBBox())  // load the bounding box in first - independant
+    {
+        std::cerr << "Failed to load Bounding Box" << std::endl;
+        return false;
+    }
+
+
+    if (!loadVDBTree())  // next load in the VDB tree
+    {
+        std::cerr << "Failed to load VDB Tree" << std::endl;
+        return false;
+    }
+
+    std::cout << "All basic data loaded from file..." << std::endl;
+
+    // if everything has gone well and all loaded return positively
+    m_loaded = true;
+
+    return true;
+}
+
 void VDB::initParams()
 {
     m_numChannels = 0;
@@ -229,4 +264,202 @@ void VDB::initParams()
     for (int i = 0; i < 4; i++) {
         m_drawTreeLevels[i] = 1;
     }
+}
+
+bool VDB::loadBBox()
+{
+    openvdb::Vec3d min(std::numeric_limits<double>::max());
+    openvdb::Vec3d max(-min);
+
+    // as OpenVDB uses multiple layers of grids, need to scan them all
+    for (unsigned int i = 0; i < m_allG.size(); i++) {
+        openvdb::CoordBBox b = m_allG[i]->evalActiveVoxelBoundingBox();
+        // found this little beauty in the online documentation
+        // http://www.openvdb.org/documentation/doxygen/functions_func_0x6d.html#index_m
+        min = openvdb::math::minComponent(min, m_allG[i]->indexToWorld(b.min()));
+        max = openvdb::math::maxComponent(max, m_allG[i]->indexToWorld(b.max()));
+    }
+
+    // TODO
+    buildBBox(min.x(), max.x(), min.y(), max.y(), min.z(), max.z());
+
+    return true;
+}
+
+bool VDB::loadVDBTree()
+{
+    openvdb::GridPtrVec::const_iterator pBegin = m_grid->begin();
+    openvdb::GridPtrVec::const_iterator pEnd = m_grid->end();
+
+    while (pBegin != pEnd)  // for each grid
+    {
+        if ((*pBegin)) {
+            if ((*pBegin)->getName() == m_variableNames[m_channel - 1]) {
+                // work out the type of grid and then get values
+                // TODO
+                processTypedTree((*pBegin));
+            }
+        }
+        ++pBegin;
+    }
+    return true;
+}
+
+void VDB::pushBackVDBVert(std::vector<vDat>* _v, openvdb::Vec3f _point, vDat _vert)
+{
+    _vert.x = _point.x();
+    _vert.y = _point.y();
+    _vert.z = _point.z();
+    _v->push_back(_vert);
+}
+
+void VDB::processTypedTree(openvdb::GridBase::Ptr grid)
+{
+    // scalar types
+    if (grid->isType<openvdb::BoolGrid>())
+        getTreeValues<openvdb::BoolGrid>(
+            openvdb::gridPtrCast<openvdb::BoolGrid>(grid));
+    else if (grid->isType<openvdb::FloatGrid>())
+        getTreeValues<openvdb::FloatGrid>(
+            openvdb::gridPtrCast<openvdb::FloatGrid>(grid));
+    else if (grid->isType<openvdb::DoubleGrid>())
+        getTreeValues<openvdb::DoubleGrid>(
+            openvdb::gridPtrCast<openvdb::DoubleGrid>(grid));
+    else if (grid->isType<openvdb::Int32Grid>())
+        getTreeValues<openvdb::Int32Grid>(
+            openvdb::gridPtrCast<openvdb::Int32Grid>(grid));
+    else if (grid->isType<openvdb::Int64Grid>())
+        getTreeValues<openvdb::Int64Grid>(
+            openvdb::gridPtrCast<openvdb::Int64Grid>(grid));
+    // vector types
+    else if (grid->isType<openvdb::Vec3IGrid>())
+        getTreeValues<openvdb::Vec3IGrid>(
+            openvdb::gridPtrCast<openvdb::Vec3IGrid>(grid));
+    else if (grid->isType<openvdb::Vec3SGrid>())
+        getTreeValues<openvdb::Vec3SGrid>(
+            openvdb::gridPtrCast<openvdb::Vec3SGrid>(grid));
+    else if (grid->isType<openvdb::Vec3DGrid>())
+        getTreeValues<openvdb::Vec3DGrid>(
+            openvdb::gridPtrCast<openvdb::Vec3DGrid>(grid));
+}
+
+void VDB::buildBBox(float _minx, float _maxx, float _miny, float _maxy, float _minz, float _maxz)
+{
+    m_bbox = new BoundBox(_minx, _maxx, _miny, _maxy, _minz, _maxz);
+    m_bbox->buildVAOIndexed();
+}
+
+template<typename GridType>
+inline void VDB::getTreeValues(typename GridType::Ptr _grid)
+{
+    m_treeDepth = _grid->tree().treeDepth();  //  get tree depth
+
+    m_levelCounts.resize(m_treeDepth);
+
+    // first count how many is in each level
+    for (typename GridType::TreeType::NodeCIter it = _grid->tree(); it; ++it) {
+        m_levelCounts[it.getLevel()]++;  // store the voxel count at each tree depth
+    }
+
+    m_totalVoxels = 0;
+    for (int i = 0; i < m_treeDepth; i++) {
+        m_totalVoxels +=
+            m_levelCounts[i];  // calculatye the total voxels in the tree
+    }
+
+    int level = -1;
+
+    // create blueprint elemtns array for each voxel
+    static const GLuint elementsBare[24] = { 0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6,
+                                            6, 7, 7, 4, 4, 0, 1, 5, 7, 3, 6, 2 };
+
+    std::vector<vDat> vertices;
+    vertices.resize(0);
+    std::vector<GLint> indexes;
+    indexes.resize(0);
+    int totalVertices = m_totalVoxels * 8;   // 8vertices per voxel
+    int totalElements = m_totalVoxels * 24;  // 24 elements per voxel
+
+    openvdb::CoordBBox area;
+    openvdb::Vec3f point(0.0f, 0.0f, 0.0f);
+    openvdb::Vec3f min(0.0f, 0.0f, 0.0f);
+    openvdb::Vec3f max(0.0f, 0.0f, 0.0f);
+    openvdb::Vec3f colour(0.0f, 0.0f, 0.0f);
+    // TODO
+    vDat pointVDat;
+
+    int count = 0;
+
+    for (typename GridType::TreeType::NodeCIter it = _grid->tree(); it; ++it) {
+        it.getBoundingBox(area);
+
+        min = _grid->indexToWorld(
+            area.min().asVec3s());  // minus 0.5 off to prevent gaps in the voxels
+        min[0] -= 0.5;
+        min[1] -= 0.5;
+        min[2] -= 0.5;
+        max = _grid->indexToWorld(
+            area.max().asVec3s());  // add 0.5 on to prevent gaps in the voxels
+        max[0] += 0.5;
+        max[1] += 0.5;
+        max[2] += 0.5;
+
+        level = it.getLevel();
+
+        // get colour
+        colour = Utilities::getColourFromLevel(level);
+        // TODO
+        pointVDat.nx = colour.x();  // store colour for this voxel level from pre
+                                    // defined function
+        pointVDat.ny = colour.y();
+        pointVDat.nz = colour.z();
+        // get level
+        pointVDat.u = level;
+        pointVDat.v = level;
+
+         // TODO
+         // get and store vertices
+        point = openvdb::Vec3f(min.x(), min.y(), max.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(max.x(), min.y(), max.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(max.x(), max.y(), max.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(min.x(), max.y(), max.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(min.x(), min.y(), min.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(max.x(), min.y(), min.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(max.x(), max.y(), min.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+        point = openvdb::Vec3f(min.x(), max.y(), min.z());
+        pushBackVDBVert(&vertices, point, pointVDat);
+
+        // TODO
+        // push back the corresponding element array
+        for (int j = 0; j < 24; j++) {
+            indexes.push_back((count * 8) + elementsBare[j]);
+        }
+
+        ++count;
+    }
+
+    // TODO : Very Imp!!! Vertices are directly Being Pushed in VAO so make sure
+    // we do it in vulkan
+    // m_vdbTreeVAO->bind();
+    // m_vdbTreeVAO->setIndexedData(totalVertices * sizeof(vDat), vertices[0].u,
+    //                             totalElements, &indexes[0], GL_UNSIGNED_INT);
+    // m_vdbTreeVAO->vertexAttribPointer(0, 3, GL_FLOAT, sizeof(vDat), 5);
+    // m_vdbTreeVAO->vertexAttribPointer(1, 2, GL_FLOAT, sizeof(vDat), 0);
+    // m_vdbTreeVAO->vertexAttribPointer(2, 3, GL_FLOAT, sizeof(vDat), 2);
+    // m_vdbTreeVAO->setIndicesCount(totalElements);
+    // m_vdbTreeVAO->unbind();
+
+    // TODO
+    vertices.clear();
+
+#ifdef DEBUG
+    std::cout << "VDB Tree successfully built" << std::endl;
+#endif
 }
