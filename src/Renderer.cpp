@@ -284,6 +284,7 @@ void Renderer::CreateFrameResources() {
     lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
     weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
     curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
+    modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---

@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include "Device.h"
+#include "vdb/VDBLoader.h"
 
 struct Texture {
 	VkImage image;
@@ -38,4 +39,6 @@ namespace Image {
 
     Texture* CreateTextureFromFile(Device* device, VkCommandPool commandPool, const char* path);
     Texture* CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension);
+
+    Texture* CreateTextureFromVDBFile(Device* device, VkCommandPool commandPool, const char* path);
 }

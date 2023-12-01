@@ -67,6 +67,7 @@ private:
     Texture* lowResCloudShapeTexture;
     Texture* weatherMapTexture;
     Texture* curlNoiseTexture;
+    Texture* modelingDataTexture;
 
     // --- Geometries ---
     Model* backgroundQuad;

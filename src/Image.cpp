@@ -480,3 +480,18 @@ Texture* Image::CreateTexture3DFromFiles(Device* device, VkCommandPool commandPo
 
     return texture;
 }
+
+Texture* Image::CreateTextureFromVDBFile(Device* device, VkCommandPool commandPool, const char* path)
+{
+    VDBLoader* loader = new VDBLoader();
+    loader->Load(path);
+    if (loader->IsVDBLoaded()) 
+    {
+        std::cout << "VDB loaded" << std::endl;
+    }
+    else 
+    {
+        std::cout << "VDB not loaded" << std::endl;
+    }
+    return nullptr;
+}
