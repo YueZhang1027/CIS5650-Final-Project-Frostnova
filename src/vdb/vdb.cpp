@@ -225,6 +225,25 @@ bool VDB::loadBasic()
     return true;
 }
 
+bool VDB::loadExt()
+{
+    if (!loadMesh())  // load in the high resolution data volume
+    {
+        std::cerr << "Failed to load VDB Mesh" << std::endl;
+        return false;
+    }
+
+    if (m_channelValueData) 
+    {
+        m_channelValueData->clear();
+        delete m_channelValueData;
+    }
+
+    std::cout << "High resolution data loaded..." << std::endl;
+
+    return true;
+}
+
 void VDB::initParams()
 {
     m_numChannels = 0;
