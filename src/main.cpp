@@ -100,12 +100,17 @@ int main() {
     Scene* scene = new Scene(device);
     renderer = new Renderer(device, swapChain, scene, camera);
 
+    ImGuiManager::InitUI(GetGLFWWindow(), device, swapChain, renderer->GetImageViews());
+
     glfwSetWindowSizeCallback(GetGLFWWindow(), resizeCallback);
     glfwSetMouseButtonCallback(GetGLFWWindow(), mouseDownCallback);
     glfwSetCursorPosCallback(GetGLFWWindow(), mouseMoveCallback);
 
     while (!ShouldQuit()) {
         glfwPollEvents();
+
+        ImGuiManager::RenderUI();
+
         renderer->Frame();
         renderer->UpdateUniformBuffers();
     }

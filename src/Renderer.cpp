@@ -368,6 +368,8 @@ void Renderer::RecreateFrameResources() {
 
     backgroundShader->CreateShaderProgram();
     RecordCommandBuffers();
+
+    ImGuiManager::RecreateUI(device, swapChain, imageViews);
 }
 
 void Renderer::RecordComputeCommandBuffer() {
@@ -549,6 +551,9 @@ void Renderer::Frame() {
         RecreateFrameResources();
         return;
     }
+
+
+    ImGuiManager::RecordUICommands(swapChain->GetIndex(), swapChain);
 
     // Submit the command buffer
     VkSubmitInfo submitInfo = {};
