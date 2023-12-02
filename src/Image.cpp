@@ -361,6 +361,27 @@ void Image::FromFiles(Device* device, VkCommandPool commandPool, const char* pat
 
 void Image::FromVDBFile(Device* device, VkCommandPool commandPool, const char* path, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
 {
+    VDBLoader* loader = new VDBLoader();
+    loader->Load(path);
+    if (loader->IsVDBLoaded())
+    {
+        std::cout << "VDB loaded" << std::endl;
+        VDB* vdb_ptr = loader->GetPtr();
+        if (vdb_ptr)
+        {
+            for (int i = 0; i < vdb_ptr->numChannels(); i++)
+            {
+                std::cout << vdb_ptr->channelName(i) << " " << vdb_ptr->channelType(i) << std::endl;
+            }
+            const std::vector<openvdb::Vec4f>& data = vdb_ptr->getChannelDataForTexture();
+            std::cout << data.size() << std::endl;
+            vdb_ptr->printFileInformation();
+        }
+    }
+    else
+    {
+        std::cout << "VDB not loaded" << std::endl;
+    }
 }
 
 Texture* Image::CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format) {
@@ -483,15 +504,22 @@ Texture* Image::CreateTexture3DFromFiles(Device* device, VkCommandPool commandPo
 
 Texture* Image::CreateTextureFromVDBFile(Device* device, VkCommandPool commandPool, const char* path)
 {
-    VDBLoader* loader = new VDBLoader();
-    loader->Load(path);
-    if (loader->IsVDBLoaded()) 
-    {
-        std::cout << "VDB loaded" << std::endl;
-    }
-    else 
-    {
-        std::cout << "VDB not loaded" << std::endl;
-    }
-    return nullptr;
+    Texture* texture = new Texture();
+    VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+    Image::FromVDBFile(device,
+        commandPool,
+        path,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture->image,
+        texture->imageMemory);
+
+    //texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+    //texture->sampler = Image::CreateSampler(device);
+
+    return texture;
 }

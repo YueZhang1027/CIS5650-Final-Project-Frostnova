@@ -53,26 +53,45 @@
 // structure taken from Jon Maceys NGL
 // http://nccastaff.bmth.ac.uk/jmacey/GraphicsLib
 struct vDat {
-  GLfloat u;
-  GLfloat v;
-  GLfloat nx;
-  GLfloat ny;
-  GLfloat nz;
-  GLfloat x;
-  GLfloat y;
-  GLfloat z;
+  float u; 
+  float v;
+  float nx;
+  float ny;
+  float nz;
+  float x;
+  float y;
+  float z;
 
-  GLfloat vx;
-  GLfloat vy;
-  GLfloat vz;
+  float vx;
+  float vy;
+  float vz;
 
-  GLfloat cx;
-  GLfloat cy;
-  GLfloat cz;
+  float cx;
+  float cy;
+  float cz;
 
-  GLfloat d;
+  float d;
 
-  GLfloat temp;
+  float temp;
+};
+
+struct VDatAlt 
+{
+    int pointCount;
+    int type;
+
+    float x;
+    float y;
+    float z;
+
+    int raw_x;
+    int raw_y;
+    int raw_z;
+
+    float density_scale = 1;
+    float detail_type = 1;
+    float dimensional_profile = -1;
+    float sdf = 0;
 };
 
 /// @struct BBoxBare

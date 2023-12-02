@@ -85,6 +85,8 @@ public:
     /// @param [in] _grid int - grid to query
     int getNumPointsAtGrid(int _grid);
 
+    const std::vector<openvdb::Vec4f>& getChannelDataForTexture();
+
     /// @brief Return the current active point render channel - returns int
     inline int pointChannel() { return m_currentActiveChannelPoints; }
     /// @brief Return the current active vector render channel - returns int
@@ -145,7 +147,7 @@ public:
     /// @brief Get the Bounding Box - returns BoundBox
     inline BoundBox getBBox() { return *m_bbox; }
 
-    std::vector<vDat> AllPoints;
+    std::vector<VDatAlt> mDataPoints;
 
     /// @brief Values to specify whether to draw certain tree levels
     int m_drawTreeLevels[4];
@@ -309,6 +311,14 @@ private:
     /// @brief Vector storing the channel value data to upload to a texture buffer
     /// on the GPU
     std::vector<openvdb::Vec4f>* m_channelValueData;
+    std::vector<openvdb::Vec4f> m_channelValueDataPub;
+
+    // Specifc vectors
+    std::vector<float> m_densityScaleData;
+    std::vector<float> m_detailTypeData;
+    std::vector<float> m_dimensionalProfileData;
+    std::vector<float> m_sdfData;
+
     // TODO
     ///// @brief Texture Buffer ID
     // GLuint m_gridsTBO;

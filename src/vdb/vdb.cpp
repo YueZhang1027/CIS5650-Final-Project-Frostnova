@@ -110,16 +110,12 @@ void VDB::openFile(std::string _file) {
         // now load in data to pointers from file
         m_grid = vdbFile.getGrids();
         if (!m_grid->empty()) {
-#ifdef DEBUG
             std::cout << "Grids found in file" << std::endl;
-#endif
             m_allG.resize(0);
             m_allG.clear();
             // insert all grids into single structure
             m_allG.insert(m_allG.end(), m_grid->begin(), m_grid->end());
-#ifdef DEBUG
             std::cout << "Grids inserted" << std::endl;
-#endif
         }
         else {
             std::cerr << "Grids not found in file!!" << std::endl;
@@ -127,6 +123,7 @@ void VDB::openFile(std::string _file) {
         }
         // get the total number of grids in the file
         m_numGrids = m_grid->size();
+        std::cout << m_numGrids << std::endl;
 
         for (int i = 0; i < m_numGrids; ++i) {
             // store the grid nmes and dimensions
@@ -138,22 +135,14 @@ void VDB::openFile(std::string _file) {
         }
 
         m_metadata = vdbFile.getMetadata();  // store the file metadata
-        if (m_metadata != NULL) {
-#ifdef DEBUG
-            std::cout << "Metadata found in file" << std::endl;
-#endif
-        }
-        else {
+        if (m_metadata == NULL) 
+        {
             std::cerr << "Failed to find metadata!!" << std::endl;
         }
 
         m_fileVersion = vdbFile.version();  // get the file version
-        if (m_fileVersion != "") {
-#ifdef DEBUG
-            std::cout << "File version found in file" << std::endl;
-#endif
-        }
-        else {
+        if (m_fileVersion == "") 
+        {
             std::cerr << "File version could not be found in file!!" << std::endl;
         }
 
@@ -166,6 +155,7 @@ void VDB::openFile(std::string _file) {
         m_metaValues.resize(0);
 
         for (int i = 0; i < m_numGrids; ++i) {
+            int s = 0;
             for (openvdb::MetaMap::MetaIterator iter = m_grid->at(i)->beginMeta();
                 iter != m_grid->at(i)->endMeta(); ++iter) {
                 // for all grids, loop through and store all meta data found in the file
@@ -173,16 +163,12 @@ void VDB::openFile(std::string _file) {
                 openvdb::Metadata::Ptr value = iter->second;
                 m_metaNames.push_back(name);
                 m_metaValues.push_back(value->str());
+                s++;
             }
+            std::cout << "Grid: " << i << " has values of number " << s << std::endl;
         }
 
         m_numMeta = m_metaNames.size();  // number of meta types
-
-#ifndef DARWIN
-#ifdef DEBUG
-        printFileInformation();
-#endif
-#endif
 
         // get channel and variable information to allow the trees to be created
         int numChannels = 0;
@@ -219,23 +205,6 @@ bool VDB::loadBasic() {
             << std::endl;
         return false;
     }
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
 
     if (!m_fileRead) {
         std::cerr << "Unable to load data as no VDB has been opened or read"
@@ -243,71 +212,17 @@ bool VDB::loadBasic() {
         return false;
     }
 
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
-
     if (!loadBBox())  // load the bounding box in first - independant
     {
         std::cerr << "Failed to load Bounding Box" << std::endl;
         return false;
     }
 
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
-
     if (!loadVDBTree())  // next load in the VDB tree
     {
         std::cerr << "Failed to load VDB Tree" << std::endl;
         return false;
     }
-
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
 
     std::cout << "All basic data loaded from file..." << std::endl;
 
@@ -323,67 +238,6 @@ bool VDB::loadExt() {
         std::cerr << "Failed to load VDB Mesh" << std::endl;
         return false;
     }
-
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
-
-  // TODO : texture being Created Here
-  // TODO
-  // create a texture buffer
-  // GLuint channelID;
-  // glGenBuffers(1, &channelID);
-
-  // glBindBuffer(GL_TEXTURE_BUFFER, channelID);
-  //// set sixe of texture buffer and data from reading the grids
-  // glBufferData(GL_TEXTURE_BUFFER, m_tboSize * sizeof(openvdb::Vec4f), NULL,
-  //             GL_DYNAMIC_DRAW);
-  //// create a subbuffer data set
-  // glBufferSubData(GL_TEXTURE_BUFFER, 0, m_tboSize * sizeof(openvdb::Vec4f),
-  //                &m_channelValueData->at(0)[0]);  // Fill
-
-  // glGenTextures(1, &m_gridsTBO);
-  // glActiveTexture(GL_TEXTURE0);
-  //// bind the texture
-  // glBindTexture(GL_TEXTURE_BUFFER, m_gridsTBO);
-
-  // glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, channelID);
-
-  // // the data stred in the TBO is no longer needed so remove
-    m_channelValueData->clear();
-    delete m_channelValueData;
-
-#ifdef EXT_GPU
-#ifdef NVIDIA
-    m_current_available_GPU_mem_kb = currentAvailableGPUMemKB();
-#ifdef DEBUG
-    std::cout << "Current available GPU memory: "
-        << m_current_available_GPU_mem_kb / 1024 << "MB" << std::endl;
-#endif
-#else
-#ifdef DEBUG
-    printAMDNotSupported();
-#endif
-#endif
-#else
-#ifdef DEBUG
-    // printNoExtGPU();
-#endif
-#endif
 
     std::cout << "High resolution data loaded..." << std::endl;
 
@@ -444,6 +298,11 @@ int VDB::getNumPointsAtGrid(int _grid) {
         return m_numPoints.at(_grid);
     }
     return -1;
+}
+
+const std::vector<openvdb::Vec4f>& VDB::getChannelDataForTexture()
+{
+    return *m_channelValueData;
 }
 
 // TODO : Very Imp! Drawing of VDB Happening Here
@@ -689,8 +548,7 @@ void VDB::initParams() {
     m_vdbGridsInitialized = false;
     m_extremesInit = false;
 
-    // TODO
-    /*m_tboSize = 0*/;
+    m_tboSize = 0;
 
     m_numPoints.resize(1);
     m_numPoints.at(0) = 0;
@@ -698,11 +556,6 @@ void VDB::initParams() {
     m_s.at(0) = 0;
 
     m_currentActiveChannelPoints = m_currentActiveChannelVectors = 0;
-
-    // TODO
-    // m_crop[0].setBuildIndexed(false);
-    // m_crop[1].setBuildIndexed(false);
-    // m_crop[2].setBuildIndexed(false);
 
     m_initialised = false;
     m_fileOpened = false;
@@ -721,13 +574,29 @@ void VDB::initParams() {
 
     m_numCropsToDraw = 1;
 
-    // TODO
-    // m_total_GPU_mem_kb             = 0;
-    // m_current_available_GPU_mem_kb = 0;
-
     for (int i = 0; i < 4; i++) {
         m_drawTreeLevels[i] = 1;
     }
+
+    //initialize data points
+    int xdim = 512;
+    int ydim = 64;
+    int zdim = 512;
+    for (int i = 0; i < xdim; i++) 
+    {
+        for (int j = 0; j < ydim; j++) 
+        {
+            for (int k = 0; k < zdim; k++) 
+            {
+                VDatAlt data;
+                data.raw_x = i;
+                data.raw_y = j;
+                data.raw_z = k;
+                mDataPoints.push_back(data);
+            }
+        }
+    }
+    std::cout << "data initialized: " << mDataPoints.size() << std::endl;
     // ----------------------------
 }
 
@@ -740,174 +609,68 @@ void VDB::resetParams() {
     m_loaded = false;
 }
 
-// TODO
-// logic of this function taken from studying The GL viewer provided with the
-// OpenVDB library
 template <typename GridType>
-void VDB::getMeshValuesScalar(typename GridType::ConstPtr _grid) {
+void VDB::getMeshValuesScalar(typename GridType::ConstPtr _grid) 
+{
     typedef typename GridType::ValueType ValueType;
     typedef typename GridType::TreeType TreeType;
 
     const TreeType& tree = _grid->tree();
+    openvdb::tree::ValueAccessor<const TreeType> acc(tree);  // accesoor into the file of the correct type
 
-    openvdb::tree::ValueAccessor<const TreeType> acc(
-        tree);  // accesoor into the file of the correct type
-
-    int j = 0;
+    int count = 0;
 
     // create Vec4 ready for data for texture buffer
     openvdb::Vec4f channelTemp;
     channelTemp[3] = 1.0f;
 
-    // TODO
-    std::vector<vDat> pointStore;  // store point data and normal data
-    pointStore.resize(0);
-
-    /*if (pointChannel() >0) {
-      pointStore = AllPoints;
-    }*/
-    bool Creategrid = false;
-    if (AllPoints.size() == 0) {
-        Creategrid = true;
-    }
-
-    vDat point;
-
     openvdb::Coord coord;  // coord to get from file
 
-    BBoxBare channelExtremes;
-    // init extremes ready
-    channelExtremes.minx = channelExtremes.miny = channelExtremes.minz = 0.0f;
-    channelExtremes.maxx = channelExtremes.maxy = channelExtremes.maxz = 0.0f;
-
-    for (typename GridType::ValueOnCIter it = _grid->cbeginValueOn(); it; ++it) {
-        // will always be a rounding issue here as must be an integer step
-        // however this could then cause it to miss out a few hundred thousand
-        // points instead it will over compensate and draw a couple hundred thousand
-        // more prevents a model with a hole in it all caused by rounding issues
-
+    for (typename GridType::ValueOnCIter it = _grid->cbeginValueOn(); it; ++it) 
+    {
         coord = it.getCoord();        // retirve coordinate
-        ValueType vec = acc.getValue(coord);  // get vector value (colour)
-        openvdb::Vec3d worldSpace =
-            _grid->indexToWorld(coord);  // convert coordinate into world space
-                                         /* if (pointChannel() == 0) {
-                                            point.x = worldSpace[0];
-                                            point.y = worldSpace[1];
-                                            point.z = worldSpace[2];
-                                            point.u = j;
-                                          }*/
-        point.x = worldSpace[0];
-        point.y = worldSpace[1];
-        point.z = worldSpace[2];
-        point.u = j;
-        j++;  // incremenet point count
+        ValueType val = acc.getValue(coord);  // get vector value (colour)
+        openvdb::Vec3d worldSpace = _grid->indexToWorld(coord);  // convert coordinate into world space
+                                              
+        int x, y, z;
+        coord.asXYZ(x, y, z);
+        VDatAlt& data = mDataPoints[x * 512 * 64 + y * 512 + z];
+        data.x = worldSpace[0];
+        data.y = worldSpace[1];
+        data.z = worldSpace[2];
+        data.pointCount = count;
+        
+        count++;  // incremenet point count
 
-        if (channelName(pointChannel()) == "density") {
-            point.d = (float)vec;
+        if (channelName(pointChannel()) == "density_scale") 
+        {
+            data.density_scale = (float)val;
+            m_densityScaleData.push_back((float)val);
+        }
+        else if (channelName(pointChannel()) == "detail_type") 
+        {
+            data.detail_type = (float)val;
+            m_detailTypeData.push_back((float)val);
+        }
+        else if (channelName(pointChannel()) == "dimensional_profile") 
+        {
+            data.dimensional_profile = (float)val;
+            m_dimensionalProfileData.push_back((float)val);
+        }
+        else if (channelName(pointChannel()) == "sdf") 
+        {
+            data.sdf = (float)val;
+            m_sdfData.push_back((float)val);
         }
 
-        if (channelName(pointChannel()) == "temperature") {
-            float tempVal = log((float)vec) + 273.15;
-            point.temp = tempVal;
-            glm::vec3 flameColor =
-                glm::normalize(glm::vec3(200, 88, 34)) * (float)vec * 1000.f;
-            point.cx =
-                flameColor[0];  // set colour to normal for rendering on the shader
-            point.cy = flameColor[1];
-            point.cz = flameColor[2];
-        }
-        // Give Every Particle color of Smoke
-        else {
-            glm::vec3 smokeColor =
-                glm::normalize(glm::vec3(100, 100, 100)) * (float)vec * 1000.f;
-            point.cx =
-                smokeColor[0];  // set colour to normal for rendering on the shader
-            point.cy = smokeColor[1];
-            point.cz = smokeColor[2];
-        }
+        data.type = 0; // type scalar
 
-        channelTemp[0] = vec;  // store value for texture buffer
-        channelTemp[1] = vec;
-        channelTemp[2] = vec;
-
-        point.v = 0;  // type scalar
-
+        channelTemp[0] = val;  // store value for texture buffer
+        channelTemp[1] = val;
+        channelTemp[2] = val;
         m_channelValueData->push_back(channelTemp);  // add to texture store
         m_tboSize++;
-        pointStore.push_back(point);  // add to point store
-
-        // check for minimum
-        if (point.nx < channelExtremes.minx || point.ny < channelExtremes.miny ||
-            point.nz < channelExtremes.minz) {
-            if (point.nx < channelExtremes.minx) {
-                channelExtremes.minx = point.nx;
-            }
-            if (point.ny < channelExtremes.miny) {
-                channelExtremes.miny = point.ny;
-            }
-            if (point.nz < channelExtremes.minz) {
-                channelExtremes.minz = point.nz;
-            }
-        }
-        // check for maximum
-        if (point.nx > channelExtremes.maxx || point.ny > channelExtremes.maxy ||
-            point.nz > channelExtremes.maxz) {
-            if (point.nx > channelExtremes.maxx) {
-                channelExtremes.maxx = point.nx;
-            }
-            if (point.ny > channelExtremes.maxy) {
-                channelExtremes.maxy = point.ny;
-            }
-            if (point.nz > channelExtremes.maxz) {
-                channelExtremes.maxz = point.nz;
-            }
-        }
     }
-
-    // TODO : Very Imp!!! pointStore are directly Being Pushed in VAO so make sure
-    // we do it in vulkan
-    // VAO temp(GL_POINTS);
-    // temp.create();
-    // AllPoints.push_back(pointStore);
-    // if (pointChannel() == 0) {
-    //  AllPoints.insert(AllPoints.end(), pointStore.begin(), pointStore.end());
-    //}
-    // else {
-    //  AllPoints = pointStore;
-    //}
-    if (Creategrid) {
-        AllPoints.insert(AllPoints.end(), pointStore.begin(), pointStore.end());
-    }
-    else {
-        int size = AllPoints.size() > pointStore.size() ? pointStore.size()
-            : AllPoints.size();
-        for (int i = 0; i < size; i++) {
-            if (channelName(pointChannel()) == "temperature") {
-                AllPoints[i].cx = pointStore[i].cx;
-                AllPoints[i].cy = pointStore[i].cy;
-                AllPoints[i].cz = pointStore[i].cz;
-                AllPoints[i].temp = pointStore[i].temp;
-            }
-        }
-    }
-    //// create VAO for this grid
-    // temp.bind();
-    // temp.setIndicesCount(j);
-    // temp.setData(pointStore.size() * sizeof(vDat), pointStore.at(0).u);
-    // temp.vertexAttribPointer(0, 3, GL_FLOAT, sizeof(vDat), 5);
-    // temp.vertexAttribPointer(1, 2, GL_FLOAT, sizeof(vDat), 0);
-    // temp.vertexAttribPointer(2, 3, GL_FLOAT, sizeof(vDat), 2, GL_TRUE);
-    // temp.unbind();
-    // once created, push back into the vectors of VAOs
-
-    // TODO
-    /// VAO Object
-    // m_vdbGrids->push_back(temp);
-
-    // store the extremes for this channel
-    m_channelExtremes->push_back(channelExtremes);
-
-    pointStore.clear();
 }
 
 // TODO
@@ -915,139 +678,9 @@ void VDB::getMeshValuesScalar(typename GridType::ConstPtr _grid) {
 // OpenVDB library this function is idnetical to the one above except it handles
 // vector types so has a few differences which are hihglighted
 template <typename GridType>
-void VDB::getMeshValuesVector(typename GridType::ConstPtr _grid) {
-    typedef typename GridType::ValueType ValueType;
-    typedef typename GridType::TreeType TreeType;
-
-    const TreeType& tree = _grid->tree();
-
-    openvdb::tree::ValueAccessor<const TreeType> acc(
-        tree);  // accessor into grid of the right type
-
-    int j = 0;
-
-    openvdb::Vec4f channelTemp;
-    channelTemp[3] = 1.0f;
-
-    std::vector<vDat> pointStore;
-    pointStore.resize(0);
-
-    vDat point;
-
-    openvdb::Coord coord;
-    bool Creategrid = false;
-    if (AllPoints.size() == 0) {
-        Creategrid = true;
-    }
-    BBoxBare channelExtremes;
-    channelExtremes.minx = channelExtremes.miny = channelExtremes.minz = 0.0f;
-    channelExtremes.maxx = channelExtremes.maxy = channelExtremes.maxz = 0.0f;
-
-    std::string channelname = channelName(pointChannel());
-
-    for (typename GridType::ValueOnCIter it = _grid->cbeginValueOn(); it; ++it) {
-        // will always be a rounding issue here as must be an integer step
-        // however this could then cause it to miss out a few hundred thousand
-        // points instead it will over compensate and draw a couple hundred thousand
-        // more prevents a model with a hole in it all caused by rounding issues
-
-        coord = it.getCoord();
-        ValueType vec = acc.getValue(coord);
-        openvdb::Vec3d worldSpace = _grid->indexToWorld(coord);
-
-        point.x = worldSpace[0];
-        point.y = worldSpace[1];
-        point.z = worldSpace[2];
-        point.u = j;
-
-        j++;
-
-        vec.normalize();  // normalize vector before setting
-
-        if (channelName(pointChannel()) == "v") {
-            point.vx = vec[0];
-            point.vy = vec[1];
-            point.vz = vec[2];
-        }
-
-        point.nx = vec[0];
-        point.ny = vec[1];
-        point.nz = vec[2];
-
-        channelTemp[0] = vec[0];
-        channelTemp[1] = vec[1];
-        channelTemp[2] = vec[2];
-
-        channelTemp.normalize();  // normalize data again to ensure between 0 and 1
-
-        point.v = 1;  // type is vector - used on the shader
-
-        m_channelValueData->push_back(channelTemp);
-        m_tboSize++;
-        pointStore.push_back(point);
-
-        // check for minimum
-        if (point.nx < channelExtremes.minx || point.ny < channelExtremes.miny ||
-            point.nz < channelExtremes.minz) {
-            if (point.nx < channelExtremes.minx) {
-                channelExtremes.minx = point.nx;
-            }
-            if (point.ny < channelExtremes.miny) {
-                channelExtremes.miny = point.ny;
-            }
-            if (point.nz < channelExtremes.minz) {
-                channelExtremes.minz = point.nz;
-            }
-        }
-        // check for maximum
-        if (point.nx > channelExtremes.maxx || point.ny > channelExtremes.maxy ||
-            point.nz > channelExtremes.maxz) {
-            if (point.nx > channelExtremes.maxx) {
-                channelExtremes.maxx = point.nx;
-            }
-            if (point.ny > channelExtremes.maxy) {
-                channelExtremes.maxy = point.ny;
-            }
-            if (point.nz > channelExtremes.maxz) {
-                channelExtremes.maxz = point.nz;
-            }
-        }
-    }
-    if (Creategrid) {
-        AllPoints.insert(AllPoints.end(), pointStore.begin(), pointStore.end());
-    }
-    else {
-        // Since Grid has already been created for density channelwe will just fetch
-        // all points
-        int size = AllPoints.size() > pointStore.size() ? pointStore.size()
-            : AllPoints.size();
-        for (int i = 0; i < size; i++) {
-            if (channelName(pointChannel()) == "v") {
-                AllPoints[i].vx = pointStore[i].vx;
-                AllPoints[i].vy = pointStore[i].vy;
-                AllPoints[i].vz = pointStore[i].vz;
-            }
-        }
-    }
-
-    // TODO : Very Imp!!! pointStore are directly Being Pushed in VAO so make sure
-    // we do it in vulkan
-    // VAO temp(GL_POINTS);
-    // temp.create();
-    //// bind and create the VAO for this gird
-    // temp.bind();
-    // temp.setIndicesCount(j);
-    // temp.setData(pointStore.size() * sizeof(vDat), pointStore.at(0).u);
-    // temp.vertexAttribPointer(0, 3, GL_FLOAT, sizeof(vDat), 5);
-    // temp.vertexAttribPointer(1, 2, GL_FLOAT, sizeof(vDat), 0);
-    // temp.vertexAttribPointer(2, 3, GL_FLOAT, sizeof(vDat), 2, GL_TRUE);
-    // temp.unbind();
-    //// store to vector of VAOs
-    // m_vdbGrids->push_back(temp);
-    //// store extremes for this channel
-    // m_channelExtremes->push_back(channelExtremes);
-
-    pointStore.clear();
+void VDB::getMeshValuesVector(typename GridType::ConstPtr _grid)
+{
+    std::cout << "entered!" << std::endl;
 }
 
 // TODO : Some Stuff
@@ -1331,6 +964,9 @@ void VDB::callGetValuesTree(typename GridType::Ptr grid) {
 /// the / correct function for scalar or vector to get high res data values
 void VDB::processTypedGrid(openvdb::GridBase::Ptr grid) {
     // scalar types
+
+    std::cout << grid->isType<openvdb::FloatGrid>() << std::endl;
+
     if (grid->isType<openvdb::BoolGrid>())
         callGetValuesGridScalar<openvdb::BoolGrid>(
             openvdb::gridPtrCast<openvdb::BoolGrid>(grid));
