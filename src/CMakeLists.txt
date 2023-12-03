@@ -1,3 +1,5 @@
+set(CMAKE_CXX_STANDARD 17)
+
 file(GLOB SOURCES 
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
@@ -5,6 +7,9 @@ file(GLOB SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaderprogram/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/vdb/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vdb/*.h
+
 )
 
 file(GLOB IMAGES
@@ -13,6 +18,10 @@ file(GLOB IMAGES
     ${CMAKE_CURRENT_SOURCE_DIR}/images/*.bmp
     ${CMAKE_CURRENT_SOURCE_DIR}/images/hiResCloudShape/*.tga
     ${CMAKE_CURRENT_SOURCE_DIR}/images/lowResCloudShape/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example1/tga/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example2/tga/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example1/*.vdb
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example2/*.vdb
 )
 
 foreach(IMAGE ${IMAGES})
