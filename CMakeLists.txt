@@ -60,6 +60,8 @@ ELSE(WIN32)
     link_libraries(${XCB_LIBRARIES} ${VULKAN_LIB})
 ENDIF(WIN32)
 
+link_libraries($ENV{VCPKG_DEFAULT_TRIPLET}/debug/lib/tbb12_debug.lib)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/")
 
 add_subdirectory(external)
