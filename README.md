@@ -39,6 +39,7 @@ git clone https://github.com/microsoft/vcpkg
 cd vcpkg
 ./vcpkg/bootstrap-vcpkg.bat
 ```
+Check your systen Environment Variables to see if there is a `VCPKG_DEFAULT_TRIPLET` and it should be set to `<path to vcpkg>\vcpkg\installed\x64-windows`.
 
 ### 2. Install OpenVDB Dependencies
 
