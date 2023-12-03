@@ -65,6 +65,8 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
     # TODO: Build shaders on not windows
 endforeach()
 
+add_definitions( -DPROJECT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}" )
+
 target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw)
 target_include_directories(vulkan_volumetric_cloud PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}

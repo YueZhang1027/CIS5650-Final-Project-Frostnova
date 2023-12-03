@@ -2,13 +2,11 @@
 #include <iostream>
 #include <filesystem>
 
-#define PROJECT_DIRECTORY "C:/Users/xinyu/Documents/cis565/CIS5650-Final-Project-Frostnova"
-
 void VDBLoader::Load(const std::string filename) 
 {
     namespace fs = std::filesystem;
 
-    const fs::path src_dir = fs::path(PROJECT_DIRECTORY) / fs::path("src");
+    const fs::path src_dir = fs::path(PROJECT_DIRECTORY);
     const std::string file = (src_dir / filename).string();
 
     // load the VDB file
