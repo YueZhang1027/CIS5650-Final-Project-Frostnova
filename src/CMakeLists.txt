@@ -65,6 +65,8 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
     # TODO: Build shaders on not windows
 endforeach()
 
+set_target_properties(vulkan_volumetric_cloud PROPERTIES VS_GLOBAL_VcpkgEnabled true)
+
 add_definitions( -DPROJECT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}" -DOPENVDB_DLL -DOPENVDB_ABI_VERSION_NUMBER=10 -DIMATH_DLL -DTBB_USE_DEBUG)
 
 target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw)
