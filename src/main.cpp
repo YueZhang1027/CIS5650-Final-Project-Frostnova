@@ -6,10 +6,6 @@
 #include "Scene.h"
 #include "Image.h"
 
-#include "GUIManager.h"
-
-#define ENABLE_IMGUI 1
-
 Device* device;
 SwapChain* swapChain;
 Renderer* renderer;
@@ -30,6 +26,10 @@ namespace {
     double previousY = 0.0;
 
     void mouseDownCallback(GLFWwindow* window, int button, int action, int mods) {
+        if (renderer->MouseOverImGuiWindow()) {
+            return;
+        }
+
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
                 leftMouseDown = true;
@@ -95,14 +95,10 @@ int main() {
     swapChain = device->CreateSwapChain(surface, 5); // TODO: check numBuffers
     // the length of the array is equal to the total number of render passes - 1
 
-    // ImGuiManager::InitImGui(GetGLFWWindow(), surface, device);
-
     camera = new Camera(device, 1920.f / 1080.f);
 
     Scene* scene = new Scene(device);
-    renderer = new Renderer(device, swapChain, scene, camera);
-
-    ImGuiManager::InitUI(GetGLFWWindow(), device, swapChain, renderer->GetImageViews());
+    renderer = new Renderer(GetGLFWWindow(), device, swapChain, scene, camera);
 
     glfwSetWindowSizeCallback(GetGLFWWindow(), resizeCallback);
     glfwSetMouseButtonCallback(GetGLFWWindow(), mouseDownCallback);
@@ -110,13 +106,8 @@ int main() {
 
     while (!ShouldQuit()) {
         glfwPollEvents();
-
-        ImGuiManager::RenderUI();
-
         renderer->Frame();
         renderer->UpdateUniformBuffers();
-        
-        // ImGuiManager::RenderImGui();
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());

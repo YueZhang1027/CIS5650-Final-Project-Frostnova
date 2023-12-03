@@ -6,14 +6,17 @@
 
 #include "Descriptor.h"
 
+#define USE_UI 0
+
 static constexpr unsigned int WORKGROUP_SIZE = 32;
 
-Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* camera)
+Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Scene* scene, Camera* camera)
   : device(device),
     logicalDevice(device->GetVkDevice()),
     swapChain(swapChain),
     scene(scene),
-    camera(camera) {
+    camera(camera),
+    window(window) {
 
     CreateCommandPools();
     CreateRenderPass();
@@ -24,6 +27,10 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
     CreateModels();
     CreateDescriptors();
     CreatePipelines();
+
+#if USE_UI
+    CreateUI();
+#endif
 
     RecordCommandBuffers();
     RecordComputeCommandBuffer();
@@ -369,8 +376,6 @@ void Renderer::RecreateFrameResources() {
 
     backgroundShader->CreateShaderProgram();
     RecordCommandBuffers();
-
-    ImGuiManager::RecreateUI(device, swapChain, imageViews);
 }
 
 void Renderer::RecordComputeCommandBuffer() {
@@ -465,6 +470,19 @@ void Renderer::RecordCommandBuffers() {
         backgroundShader->BindShaderProgram(commandBuffers[i]);
         backgroundQuad->EnqueueDrawCommands(commandBuffers[i]);
 
+#if USE_UI
+        // UI
+        mouseOverImGuiWindow = io->WantCaptureMouse;
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::ShowDemoWindow();
+
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
+#endif
+
         //// End render pass
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -553,8 +571,7 @@ void Renderer::Frame() {
         return;
     }
 
-
-    ImGuiManager::RecordUICommands(swapChain->GetIndex(), swapChain);
+    // ImGuiManager::RecordUICommands(swapChain->GetIndex(), swapChain);
 
     // Submit the command buffer
     VkSubmitInfo submitInfo = {};
@@ -594,6 +611,13 @@ void Renderer::Frame() {
 }
 
 Renderer::~Renderer() {
+#if USE_UI
+    // UI cleanup
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+#endif
+
     vkDeviceWaitIdle(logicalDevice);
 
     // TODO: destroy any resources you created
@@ -614,4 +638,41 @@ Renderer::~Renderer() {
     DestroyFrameResources();
     vkDestroyCommandPool(logicalDevice, computeCommandPool, nullptr);
     vkDestroyCommandPool(logicalDevice, graphicsCommandPool, nullptr);
+}
+
+// UI section
+void Renderer::CreateUI() {
+    // Create UI descriptor pool
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, swapChain->GetCount() },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, swapChain->GetCount() * 2 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = swapChain->GetCount() * 2;
+    pool_info.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
+    pool_info.pPoolSizes = pool_sizes;
+    if (vkCreateDescriptorPool(logicalDevice, &pool_info, nullptr, &uiDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("Cannot allocate UI descriptor pool!");
+    }
+
+    ImGui::CreateContext();
+    io = &ImGui::GetIO();
+
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = device->GetInstance()->GetVkInstance();
+    init_info.PhysicalDevice = device->GetInstance()->GetPhysicalDevice();
+    init_info.Device = device->GetVkDevice();
+    init_info.ImageCount = swapChain->GetCount();
+    init_info.MinImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+    init_info.QueueFamily = device->GetInstance()->GetQueueFamilyIndices()[QueueFlags::Graphics];
+    init_info.Queue = device->GetQueue(QueueFlags::Graphics);
+    init_info.DescriptorPool = uiDescriptorPool;
+
+    ImGui_ImplVulkan_Init(&init_info, renderPass);
 }

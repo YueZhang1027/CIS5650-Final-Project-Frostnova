@@ -8,13 +8,18 @@
 #include "Image.h"
 #include "shaderprogram/ShaderProgramIncludes.h"
 
-#include "GUIManager.h"
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_glfw.h"
+#include "ImGui/imgui_impl_vulkan.h"
 
 class Renderer {
 public:
     Renderer() = delete;
-    Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* camera);
+    Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Scene* scene, Camera* camera);
     ~Renderer();
+
+    void CreateUI();
+    bool MouseOverImGuiWindow() const { return mouseOverImGuiWindow; }
 
     void CreateCommandPools();
 
@@ -35,8 +40,6 @@ public:
 
     void UpdateUniformBuffers();
     void Frame();
-
-    std::vector<VkImageView> GetImageViews() const { return imageViews; }
 private:
     Device* device;
     VkDevice logicalDevice;
@@ -80,4 +83,11 @@ private:
     std::vector<VkCommandBuffer> computeCommandBuffers;
     std::vector<VkCommandBuffer> offscreenCommandBuffers;
     bool swapBackground = false;
+
+    // --- UI ---
+    GLFWwindow* window;
+    VkDescriptorPool uiDescriptorPool;
+    ImGuiIO* io;
+
+    bool mouseOverImGuiWindow = false;
 };
