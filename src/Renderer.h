@@ -8,6 +8,8 @@
 #include "Image.h"
 #include "shaderprogram/ShaderProgramIncludes.h"
 
+#include "GUIManager.h"
+
 class Renderer {
 public:
     Renderer() = delete;
@@ -34,6 +36,7 @@ public:
     void UpdateUniformBuffers();
     void Frame();
 
+    std::vector<VkImageView> GetImageViews() const { return imageViews; }
 private:
     Device* device;
     VkDevice logicalDevice;
