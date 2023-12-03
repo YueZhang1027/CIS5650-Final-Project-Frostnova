@@ -21,7 +21,7 @@ namespace Descriptor {
     void CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet);
     void CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera);
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
-        Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
+        Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise, Texture* modelingData);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
 
     void CleanUp(VkDevice logicalDevice);

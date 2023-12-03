@@ -43,6 +43,7 @@ layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
 layout(set = 3, binding = 1) uniform sampler3D detailCloudShape;
 layout(set = 3, binding = 2) uniform sampler2D weatherMap;
 layout(set = 3, binding = 3) uniform sampler2D curlNoise;
+layout(set = 3, binding = 4) uniform sampler3D modelingData;
 
 layout(set = 4, binding = 0) uniform TimeObject {
     float deltaTime;

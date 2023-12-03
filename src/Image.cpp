@@ -367,16 +367,50 @@ void Image::FromVDBFile(Device* device, VkCommandPool commandPool, const char* p
     {
         std::cout << "VDB loaded" << std::endl;
         VDB* vdb_ptr = loader->GetPtr();
-        if (vdb_ptr)
+
+        glm::vec3 dimension = vdb_ptr->dimension;
+        VkDeviceSize imageSize = dimension.x * dimension.y * dimension.z * 4;
+
+        // Create staging buffer
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        VkBufferUsageFlags stagingUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        VkMemoryPropertyFlags stagingProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        BufferUtils::CreateBuffer(device, imageSize, stagingUsage, stagingProperties, stagingBuffer, stagingBufferMemory);
+
+        const std::vector<VDatAlt>& vdbData = vdb_ptr->mDataPoints;
+
+        for (uint32_t i = 0; i < static_cast<uint32_t>(dimension.z); ++i)
         {
-            for (int i = 0; i < vdb_ptr->numChannels(); i++)
-            {
-                std::cout << vdb_ptr->channelName(i) << " " << vdb_ptr->channelType(i) << std::endl;
+            unsigned char* pixels = Image::GenerateVDBSlice(vdbData, i, dimension);
+            if (!pixels) {
+                std::cout << "Failed to load texture image" << i << std::endl;
+                throw std::runtime_error("Failed to load texture image");
             }
-            const std::vector<openvdb::Vec4f>& data = vdb_ptr->getChannelDataForTexture();
-            std::cout << data.size() << std::endl;
-            vdb_ptr->printFileInformation();
+
+            void* data;
+            imageSize = dimension.x * dimension.y * 4;
+            vkMapMemory(device->GetVkDevice(), stagingBufferMemory, static_cast<uint64_t>(i) * imageSize, imageSize, 0, &data);
+            memcpy(data, pixels, static_cast<size_t>(imageSize));
+            vkUnmapMemory(device->GetVkDevice(), stagingBufferMemory);
+
+            free(pixels);
         }
+
+        // Create Vulkan image
+        Image::Create3D(device, dimension, format, tiling, VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage, properties, image, imageMemory);
+
+        // Copy the staging buffer to the texture image
+        Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Image::CopyFromBuffer(device, commandPool, stagingBuffer, image, static_cast<uint32_t>(dimension.x), static_cast<uint32_t>(dimension.y), static_cast<uint32_t>(dimension.z)); // TODO: check
+
+        // Transition texture image for shader access
+        Image::TransitionLayout(device, commandPool, image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, layout);
+
+        // No need for staging buffer anymore
+        vkDestroyBuffer(device->GetVkDevice(), stagingBuffer, nullptr);
+        vkFreeMemory(device->GetVkDevice(), stagingBufferMemory, nullptr);
     }
     else
     {
@@ -518,8 +552,29 @@ Texture* Image::CreateTextureFromVDBFile(Device* device, VkCommandPool commandPo
         texture->image,
         texture->imageMemory);
 
-    //texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
-    //texture->sampler = Image::CreateSampler(device);
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+    texture->sampler = Image::CreateSampler(device);
 
     return texture;
+}
+
+unsigned char* Image::GenerateVDBSlice(const std::vector<VDatAlt>& data, unsigned int depth, glm::vec3 dimension)
+{
+    unsigned char* result = new unsigned char[dimension.x * dimension.y * 4];
+    int idx = 0;
+    int xmultiplier = dimension.y * dimension.z;
+    int ymultiplier = dimension.z;
+    for (int i = 0; i < dimension.x; i++) 
+    {
+        for (int j = 0; j < dimension.y; j++) 
+        {
+            const VDatAlt& vdat = data[i * xmultiplier + j * ymultiplier + depth];
+            result[idx] = vdat.dimensional_profile;
+            result[idx + 1] = vdat.detail_type;
+            result[idx + 2] = vdat.density_scale;
+            result[idx + 3] = vdat.sdf;
+            idx = idx + 4;
+        }
+    }
+    return result;
 }

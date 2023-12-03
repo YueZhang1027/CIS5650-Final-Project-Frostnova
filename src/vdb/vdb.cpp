@@ -23,7 +23,6 @@
 
 #include "Utilities.h"
 #include "math.h"
-#include "glm/glm.hpp"
 
 
 #ifdef NVIDIA
@@ -580,8 +579,8 @@ void VDB::initParams() {
 
     //initialize data points
     int xdim = 512;
-    int ydim = 64;
-    int zdim = 512;
+    int ydim = 512;
+    int zdim = 64;
     for (int i = 0; i < xdim; i++) 
     {
         for (int j = 0; j < ydim; j++) 
@@ -590,12 +589,15 @@ void VDB::initParams() {
             {
                 VDatAlt data;
                 data.raw_x = i;
-                data.raw_y = j;
-                data.raw_z = k;
+                data.raw_y = k;
+                data.raw_z = j;
                 mDataPoints.push_back(data);
             }
         }
     }
+    dimension.x = xdim;
+    dimension.y = ydim;
+    dimension.z = zdim;
     std::cout << "data initialized: " << mDataPoints.size() << std::endl;
     // ----------------------------
 }
@@ -634,7 +636,7 @@ void VDB::getMeshValuesScalar(typename GridType::ConstPtr _grid)
                                               
         int x, y, z;
         coord.asXYZ(x, y, z);
-        VDatAlt& data = mDataPoints[x * 512 * 64 + y * 512 + z];
+        VDatAlt& data = mDataPoints[x * 512 * 64 + z * 64 + y];
         data.x = worldSpace[0];
         data.y = worldSpace[1];
         data.z = worldSpace[2];

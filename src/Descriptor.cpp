@@ -90,11 +90,19 @@ void Descriptor::CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice) 
     curlNoiseLayoutBinding.pImmutableSamplers = nullptr;
     curlNoiseLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkDescriptorSetLayoutBinding modelingDataLayoutBinding = {};
+    modelingDataLayoutBinding.binding = 4;
+    modelingDataLayoutBinding.descriptorCount = 1;
+    modelingDataLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    modelingDataLayoutBinding.pImmutableSamplers = nullptr;
+    modelingDataLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     std::vector<VkDescriptorSetLayoutBinding> bindings = { 
         lowResLayoutBinding, // lowRes
         hiResLayoutBinding, // hiRes
         weatherMapLayoutBinding, // weatherMap
-        curlNoiseLayoutBinding // curlNoise
+        curlNoiseLayoutBinding, // curlNoise
+        modelingDataLayoutBinding // modelingData
     };
 
     // Create the descriptor set layout
@@ -178,7 +186,7 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
 
         // Image samplers: compute images: lowres, hires, weather map
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
 
         // Camera, PrevCamera, Parameter
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
@@ -335,7 +343,7 @@ void Descriptor::CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camer
 }
 
 void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
-    Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise) {
+    Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise, Texture* modelingData) {
     // Describe the desciptor set
 	VkDescriptorSetLayout layouts[] = { computeImagesDescriptorSetLayout };
 	VkDescriptorSetAllocateInfo allocInfo = {};
@@ -370,7 +378,12 @@ void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice,
     curlImageInfo.imageView = curlNoise->imageView;
     curlImageInfo.sampler = curlNoise->sampler;
 
-	std::array<VkWriteDescriptorSet, 4> descriptorWrites = {};
+    VkDescriptorImageInfo modelingDataInfo = {};
+    modelingDataInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    modelingDataInfo.imageView = curlNoise->imageView;
+    modelingDataInfo.sampler = curlNoise->sampler;
+
+	std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = computeImagesDescriptorSet;
 	descriptorWrites[0].dstBinding = 0;
@@ -410,6 +423,16 @@ void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice,
     descriptorWrites[3].pBufferInfo = nullptr;
     descriptorWrites[3].pImageInfo = &curlImageInfo;
     descriptorWrites[3].pTexelBufferView = nullptr;
+
+    descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[4].dstSet = computeImagesDescriptorSet;
+    descriptorWrites[4].dstBinding = 4;
+    descriptorWrites[4].dstArrayElement = 0;
+    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[4].descriptorCount = 1;
+    descriptorWrites[4].pBufferInfo = nullptr;
+    descriptorWrites[4].pImageInfo = &modelingDataInfo;
+    descriptorWrites[4].pTexelBufferView = nullptr;
 
     // Update descriptor sets
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);

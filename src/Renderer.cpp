@@ -254,7 +254,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
 
     // Image - Compute shader images
-    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
+    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture, modelingDataTexture);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);

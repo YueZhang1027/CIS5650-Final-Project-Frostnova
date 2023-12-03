@@ -41,4 +41,6 @@ namespace Image {
     Texture* CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension);
 
     Texture* CreateTextureFromVDBFile(Device* device, VkCommandPool commandPool, const char* path);
+    
+    unsigned char* GenerateVDBSlice(const std::vector<VDatAlt>& data, unsigned int depth, glm::vec3 dimension);
 }

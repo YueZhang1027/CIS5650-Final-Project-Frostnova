@@ -21,6 +21,7 @@
 #define __VDB_H__
 
 #include <openvdb/openvdb.h>
+#include "glm/glm.hpp"
 
 #include "BoundBox.h"
 
@@ -148,6 +149,7 @@ public:
     inline BoundBox getBBox() { return *m_bbox; }
 
     std::vector<VDatAlt> mDataPoints;
+    glm::vec3 dimension;
 
     /// @brief Values to specify whether to draw certain tree levels
     int m_drawTreeLevels[4];
