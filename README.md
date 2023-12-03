@@ -32,13 +32,61 @@ The project is using OpenVDB for modeling data loading. To build the project, he
 
 ### 1. Install vcpkg
 
-The project uses vcpkg for the installation of OpenVDB and its dependencies. The following steps are specifically for Windows users, if you are using another operating system, please refer to the  [official GitHub page](https://github.com/microsoft/vcpkg).
+The project uses vcpkg for the installation of OpenVDB and its dependencies. The following steps are specifically for Windows users, if you are using another operating system, please refer to the  [official GitHub page for vcpkg](https://github.com/microsoft/vcpkg).
 
 ```
-
+git clone https://github.com/microsoft/vcpkg
+cd vcpkg
+./vcpkg/bootstrap-vcpkg.bat
 ```
 
-## Algorithms and approaches
-### Cloud modeling
+### 2. Install OpenVDB Dependencies
 
-### Cloud raymarching
+```
+./vcpkg install zlib --triplet=x64-windows
+./vcpkg install blosc --triplet=x64-windows
+./vcpkg install tbb --triplet=x64-windows
+./vcpkg install boost-iostreams --triplet=x64-windows
+./vcpkg install boost-any --triplet=x64-windows
+./vcpkg install boost-algorithm --triplet=x64-windows
+./vcpkg install boost-interprocess --triplet=x64-windows
+./vcpkg integrate install
+```
+
+### 3. Install OpenVDB
+
+For operating systems other than Windows, refer to the [official GitHub page for OpenVDB](https://github.com/AcademySoftwareFoundation/openvdb).
+
+```
+./vcpkg install openvdb --triplet=x64-windows
+./vcpkg integrate install
+```
+
+## Algorithms and Approaches
+### Cloud Modeling
+There are two major inputs containing the information to render a cloud. `Modeling Data` stores information defining the overall shape of the cloud, which can be loaded from `.vdb` files and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. Both of the input data files can be generated from a noise generator as a Houdini Asset provided by Nubis3 team.
+
+#### VDB
+
+VDB is a data structure based on hierarchical voxel grids, which is especially efficient on storing data for model of clouds, smoke, and fire. In this project, we are using `.vdb` generated from the generator mentioned above, which specifically defines 3 channels for purpose of rendering clouds. 
+
+1. `Dimensional Profile`: Construct overall shape and provide gradiant information. 
+
+2. `Detail type`: Describing the distribution of two detail forms, Billow and Wispy, on cloud structures. 
+
+3. `Density Scale`: Providing density modulation.
+
+![](img/readmeref1.png)
+
+We use `OpenVDB` to load the `.vdb` file and stores the values of the 3 channels into 3D textures that will be sent to shaders.
+
+#### TGA
+
+As mentioned above, there are two detail forms, `Billow` and `Wispy`. In order to simulate the behavior of the two forms, we use the 3D noises stored in the sequences of `.tga` files. The `.tga` file will be loaded as 3D textures with 4 channels, where each channel stores a specific type of noise. RG solve for `Billow` and BA solve for `Wispy`.
+
+```
+R：Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
+```
+
+
+### Cloud Raymarching
