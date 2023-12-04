@@ -5,7 +5,7 @@ Real-time Volumetric Cloud Rendering in Vulkan
 
 ## Project Overview
 
-A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and render immersive real-time voxel-based clouds*](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf), a highly detailed and immersive voxel-based cloud renderer and modeling approach in SIGGRAPH 2023, Advances in Real-Time Rendering in Games course. 
+A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and render immersive real-time voxel-based clouds*](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf), a highly detailed and immersive voxel-based cloud renderer and modeling approach in SIGGRAPH 2023, Advances in Real-Time Rendering in Games course. In this project, we tried to follow the developing history of Real-Time Volumetric Cloud Generating Solution *Nubis* and its different algorithm in 1, 2 and 3 generation. 
 
 ![](img/cloud_short.gif)
 
@@ -37,9 +37,9 @@ The project uses vcpkg for the installation of OpenVDB and its dependencies. The
 ```
 git clone https://github.com/microsoft/vcpkg
 cd vcpkg
-./vcpkg/bootstrap-vcpkg.bat
+./bootstrap-vcpkg.bat
 ```
-Check your systen Environment Variables to see if there is a `VCPKG_DEFAULT_TRIPLET` and it should be set to `<path to vcpkg>\vcpkg\installed\x64-windows`.
+Check your systen Environment Variables to see if there is a `VCPKG_DEFAULT_TRIPLET` and it should be set to `<path to vcpkg>\installed\x64-windows`.
 
 ### 2. Install OpenVDB Dependencies
 
@@ -89,5 +89,22 @@ As mentioned above, there are two detail forms, `Billow` and `Wispy`. In order t
 R：Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 ```
 
-
 ### Cloud Raymarching
+We followed Nubis 2 solution first to produce a basic ray marching algorithm, here is the psuedo algorithm here:
+```
+Psuedo algorithm of cloud density and light energy raymarching
+Input: Low-resolution, high-resolution cloud  profile, weather map (coverage, type), curl noise,
+1. Raytrace atmosphere to set up start and end point
+2. Raymarch cloud density
+    2.1 Sample profile density (base density)
+        2.1.1 Sample layer density based on cloud type
+        2.1.2 Sample profile shape
+    2.2 Sample detail density if profile density > 0 to erose density
+    2.3 Sample lighting = Direct Scattering + Ambient Scattering 
+    2.4 Accumulate density and lighting energy on each step
+    2.5 Adjust step size based on profile density
+```
+
+Basically, we use the 3D texture produced from Cloud modeling as the sampler of profile density and detail density. 
+
+### Environment
