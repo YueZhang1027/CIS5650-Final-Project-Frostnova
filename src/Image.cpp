@@ -552,7 +552,7 @@ Texture* Image::CreateTextureFromVDBFile(Device* device, VkCommandPool commandPo
         texture->image,
         texture->imageMemory);
 
-    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D);
     texture->sampler = Image::CreateSampler(device);
 
     return texture;
