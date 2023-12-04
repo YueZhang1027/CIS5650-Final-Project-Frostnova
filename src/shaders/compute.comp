@@ -7,6 +7,7 @@
 #define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
+#define ONE_DAY 16.0f
 
 // TODO: check go through cloud?
 // Atmosphere
@@ -217,8 +218,7 @@ vec3[] samples = vec3[6](
      vec3(-0.1, 1, -0.2)
 );
 
-void CalculateLightingSamples(Ray ray) {
-    const vec3 lightDir = normalize(SUN_LOCATION - ray.mOrigin);
+void CalculateLightingSamples(Ray ray, vec3 lightDir) {
 
     vec3 maxCompUnitVector;
     if(abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2])) {
@@ -279,13 +279,14 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 //--------------------------------------------------------
 //					Raymarching Functions
 //--------------------------------------------------------
-void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, vec3 earthCenter, 
+void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, 
+        vec3 earthCenter, vec3 lightDir,       
         out float accumDensity, out float transmittance) {
     float stepSize = 0.05 * ATMOSPHERE_THICKNESS;
 
     // Lighting
-    CalculateLightingSamples(ray);
-    float cosTheta = dot(ray.mDirection, normalize(SUN_LOCATION - ray.mOrigin));
+    CalculateLightingSamples(ray, lightDir);
+    float cosTheta = dot(ray.mDirection, normalize(lightDir));
     float henyeyGreenstein = HG(cosTheta, 0.2f); // TODO: MANIPULATE
 
     accumDensity = 0.0f;
@@ -396,6 +397,79 @@ Intersection RaySphereIntersection(Ray ray, vec3 sphereCenter, float sphereRadiu
     return isect;
 }
 
+//--------------------------------------------------------
+//					        Sky
+//--------------------------------------------------------
+
+// convert a vector to sphere coord
+vec2 sphereToUV(vec3 p)
+{
+    float phi = atan(p.z, p.x);
+    if (phi < 0)
+    {
+        phi += 2.0 * PI;
+    }
+    float theta = acos(clamp(p.y, -0.999999, 0.999999));
+    return vec2(1.0 - phi / (2.0 * PI), 1.0 - theta / PI);
+}
+
+float noise(vec3 coord)
+{
+    float starThreshold = 0.97;
+    float n = fract(415.92653 * (0.7 * cos(37.3 * coord.x) + 1.2 * cos(56.1 * coord.y) + 0.2 * cos(45.8 * coord.z)));
+    if (n >= starThreshold)
+    {
+        n = pow((n - starThreshold) / (1.0 - starThreshold), 10.0);
+    }
+    else n = 0.0;
+    return n;
+}
+
+vec4 GetSkyColor(vec2 uvRay, vec3 rayDir, vec3 sunDir)
+{
+    vec3 _DayTopColor = vec3(0.41f, 0.67f, 1.0f);
+    vec3 _DayBottomColor = vec3(0.88f, 1.0f, 0.94f);
+    vec3 _NightTopColor = vec3(0.1f, 0.1f, 0.15f);
+    vec3 _NightBottomColor = vec3(0.01f, 0.01f, 0.01f);
+
+    //gradient day sky
+	float ypos = clamp(uvRay.y, 0, 1);
+    vec3 gradientDay = mix(_DayBottomColor, _DayTopColor, ypos);
+    vec3 gradientNight = mix(_NightBottomColor, _NightTopColor, ypos);
+    vec3 skyColor = mix(gradientNight, gradientDay, clamp(sunDir.y, 0, 1));
+
+    //star
+    float intensity = 0.0;
+    if (sunDir.y < 0.0)
+    {
+        intensity = 1.0;
+        if (sunDir.y > -0.5)
+        {
+            intensity = mix(0.0, 1.0, -sunDir.y);
+        }
+        vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
+        float starVal = noise(coordFloor) * intensity;
+        skyColor += starVal;
+    }
+
+    vec4 result;
+    result.xyz = skyColor;
+    result.a = mix(1, 40, clamp(sunDir.y, 0, 1));
+    return result;
+}
+
+vec3 GetSunColor(vec3 rayDir, vec3 sunDir)
+{ 
+    float sunRadius = 3;
+    float sun = acos(clamp(dot(rayDir, sunDir), -0.999999, 0.999999)) * 180.0 / PI;
+    float sunDisc = sunRadius - sun;
+    sunDisc = clamp(sunDisc, 0, 1);
+    float intensity = mix(0.0, 1.0, clamp(sunDir.y, 0, 1));
+    vec3 sunColor = sunDisc * vec3(5, 5, 5) * intensity;
+
+    return sunColor;
+}
+
 
 void main() 
 {
@@ -408,8 +482,16 @@ void main()
     vec2 uv = vec2(pixel) / dim; 
     Ray ray = GenerateRay(uv);
 
+    // Get Sun Direction
+    float time = mod(time.totalTime, ONE_DAY);
+    float angle = time * 2.0 * PI / ONE_DAY;
+    vec3 sunDir = normalize(vec3(0.0, sin(angle), cos(angle)));
+
     // Background color
-    vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
+    vec2 uvRay = sphereToUV(ray.mDirection);
+    vec4 sky = GetSkyColor(uvRay, ray.mDirection, sunDir);
+    vec3 bgColor = sky.rgb;
+
 
     // below horizon, return
     if (ray.mDirection.y < 0.0f) {
@@ -425,12 +507,17 @@ void main()
 	Intersection atmosphereOuterIsect = RaySphereIntersection(ray, earthCenter, ATMOSPHERE_RADIUS_OUTER);
 
     // Ray march
-    float transmittance = 1.0f;
+    float transmittance = 0.0f;
     float accumDensity = 0.0f;
-    RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, accumDensity, transmittance);
+    RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, sunDir, accumDensity, transmittance);
 	
+    if(transmittance > 0.01)
+    {
+        bgColor += GetSunColor(ray.mDirection, sunDir);
+    }
+
     accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (40.0 * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
+    vec3 cloudColor = (sky.a * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
 
     vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
