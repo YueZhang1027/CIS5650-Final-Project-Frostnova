@@ -7,7 +7,7 @@
 #define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
-#define ONE_DAY 16.0f
+#define ONE_DAY 26.0f
 
 // TODO: check go through cloud?
 // Atmosphere
@@ -436,20 +436,6 @@ vec4 GetSkyColor(vec2 uvRay, vec3 rayDir, vec3 sunDir)
     vec3 gradientNight = mix(_NightBottomColor, _NightTopColor, ypos);
     vec3 skyColor = mix(gradientNight, gradientDay, clamp(sunDir.y, 0, 1));
 
-    //star
-    float intensity = 0.0;
-    if (sunDir.y < 0.0)
-    {
-        intensity = 1.0;
-        if (sunDir.y > -0.5)
-        {
-            intensity = mix(0.0, 1.0, -sunDir.y);
-        }
-        vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
-        float starVal = noise(coordFloor) * intensity;
-        skyColor += starVal;
-    }
-
     vec4 result;
     result.xyz = skyColor;
     result.a = mix(1, 40, clamp(sunDir.y, 0, 1));
@@ -508,10 +494,7 @@ void main()
     float accumDensity = 0.0f;
     RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, sunDir, accumDensity, transmittance);
 	
-    if(transmittance > 0.01)
-    {
-        bgColor += GetSunColor(ray.mDirection, sunDir);
-    }
+    bgColor += GetSunColor(ray.mDirection, sunDir) * (1.0 - accumDensity);
 
     accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
     vec3 cloudColor = (sky.a * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
