@@ -67,13 +67,22 @@ endforeach()
 
 set_target_properties(vulkan_volumetric_cloud PROPERTIES VS_GLOBAL_VcpkgEnabled true)
 
-add_definitions( -DPROJECT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}" -DOPENVDB_DLL -DOPENVDB_ABI_VERSION_NUMBER=10 -DIMATH_DLL -DTBB_USE_DEBUG)
+foreach(DEBUGLIB ${LIBRARIES_DEBUG})
+  target_link_libraries(${PROJECT_NAME} PUBLIC debug ${DEBUGLIB})
+endforeach(DEBUGLIB)
 
-target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw)
+foreach(RELEASELIB ${LIBRARIES_OPTIMIZED})
+  target_link_libraries(${PROJECT_NAME} PUBLIC optimized ${RELEASELIB})
+endforeach(RELEASELIB)
+
+add_definitions( -DPROJECT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw OpenVDB::openvdb)
 target_include_directories(vulkan_volumetric_cloud PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${GLM_INCLUDE_DIR}
   ${STB_INCLUDE_DIR}
+  ${OpenVDB_INCLUDE_DIR}
 )
 
 InternalTarget("" vulkan_volumetric_cloud)
