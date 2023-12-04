@@ -9,7 +9,7 @@ A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and
 
 ![](img/cloud_short.gif)
 
-![](img/cloud.png)
+![](img/cloud_day_night.gif)
 
 ## Feature checklist and progress
 - Vulkan pipeline(half from scrach)
@@ -105,6 +105,17 @@ Input: Low-resolution, high-resolution cloud  profile, weather map (coverage, ty
     2.5 Adjust step size based on profile density
 ```
 
-Basically, we use the 3D texture produced from Cloud modeling as the sampler of profile density and detail density. 
+Basically, we use the 3D texture produced from Cloud modeling as the sampler of profile density and detail density. In this project, we 're going to implement two profiling method from Nubis 2 and Nubis 3: Envelope Method and Vertical Profile Method. 
+
+![](img/profile.png)
+
+#### Envelope Method
+The envelope method uses the height of cloud to calculate a packing profile information. All the cloud here is projected to atmosphere, and distributed between inner atmosphere and outer atmosphere. 
+
+![](img/envelope.png)
+
+The algorithm uses the envelope profile to create a general shape and uses wispy noise and billiowy noise as composite noise to erose the detail of the cloud based on the given cloud type map. Here is the image with only profile density used.
+
+![](img/profile_sample.png)
 
 ### Environment

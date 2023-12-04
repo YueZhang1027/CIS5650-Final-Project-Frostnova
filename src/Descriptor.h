@@ -22,7 +22,7 @@ namespace Descriptor {
     void CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet);
     void CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera);
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
-        Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise, Texture* modelingData);
+        Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
     void CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, 
         Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);

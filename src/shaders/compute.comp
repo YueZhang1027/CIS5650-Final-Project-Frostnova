@@ -44,7 +44,6 @@ layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
 layout(set = 3, binding = 1) uniform sampler3D detailCloudShape;
 layout(set = 3, binding = 2) uniform sampler2D weatherMap;
 layout(set = 3, binding = 3) uniform sampler2D curlNoise;
-layout(set = 3, binding = 4) uniform sampler3D modelingData;
 
 layout(set = 4, binding = 0) uniform TimeObject {
     float deltaTime;
@@ -260,7 +259,6 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 
         float loDensity = GetBaseDensity(skewSamplePos, lightHeight);
         if (loDensity > 0.0f) {
-            // float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float curlStrength)
 			float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
 			lightDensity += detailDensity;
 		}
