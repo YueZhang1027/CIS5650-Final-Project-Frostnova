@@ -119,3 +119,7 @@ The algorithm uses the envelope profile to create a general shape and uses wispy
 ![](img/profile_sample.png)
 
 ### Environment
+- Day night cycle with sun moving
+- Cloud lighting direction changes following the sun position
+- Cloud tint changes following the sky color
+
