@@ -1,0 +1,128 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+#define WORKGROUP_SIZE 32
+
+#define PI 3.14159265
+#define ONE_OVER_FOURPI 0.07957747154594767
+#define E 2.718281828459
+#define DEG2RAD 0.01745f
+
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
+
+layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
+layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
+
+layout(set = 2, binding = 0) uniform CameraObject {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPosition;
+} camera;
+
+layout(set = 2, binding = 2) uniform CameraParamObject {
+    float halfTanFOV;
+    float aspectRatio;
+    int pixelOffset;
+} cameraParam;
+
+// Modeling NVDF's
+// 512 x 512 x 64
+// R: Dimentional Profile 
+// G: Detail Type
+// B: Density Scale
+layout(set = 3, binding = 0) uniform sampler3D modelingNVDFTexture;
+
+// Field Data NVDF
+// 512 x 512 x 64
+layout(set = 3, binding = 1) uniform sampler3D fieldNVDFTexture;
+
+// Detail Noise
+// 128 * 128 * 128
+layout(set = 3, binding = 2) uniform sampler3D cloudDetailNoiseTexture;
+
+layout(set = 4, binding = 0) uniform TimeObject {
+    float deltaTime;
+    float totalTime;
+} time;
+
+// structs
+struct VoxelCloudModelingData {
+    float mDimensionalProfile;
+    float mDetailType;
+    float mDensityScale;
+};
+
+struct VoxelCloudDensitySamples {
+    float mProfile; // profile
+    float mFull;    // detail
+};
+
+struct CloudRenderingRaymarchInfo {
+    float mDistance;       // ray marching distance
+    float mCloudDistance;  // distance to cloud
+    float mStepSize;       // step size
+};
+
+struct Ray {
+	vec3 mOrigin;
+	vec3 mDirection;
+};
+
+struct Intersection {
+    vec3 mNormal;
+    vec3 mPoint;
+    float mTime;
+};
+
+//--------------------------------------------------------
+//					ATMOSPHERE FUNCTIONS
+//--------------------------------------------------------
+
+
+//--------------------------------------------------------
+//					TOOL BOX FUNCTIONS
+//--------------------------------------------------------
+float ValueRemap(float inValue, float inOldMin, float inOldMax, float inMin, float inMax) {
+    float old_min_max_range = (inOldMax - inOldMin);
+    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0, 1);
+    return inMin + (clamped_normalized * (inMax - inMin));
+}
+
+
+float ValueErosion(float inValue, float inOldMin) {
+    // derrived from Set-Range, this function uses the oldMin to erode or inflate the input value. - inValues inflate while + inValues erode
+    float old_min_max_range = (1.0 - inOldMin);
+    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0, 1);
+    return (clamped_normalized);
+}
+
+float GetFractionFromValue(float inValue, float inMin, float inMax) {
+    return clamp((inValue - inMin) / (inMax - inMin), 0, 1);
+}
+
+//--------------------------------------------------------
+//					Density Sample Functions
+//--------------------------------------------------------
+
+
+//--------------------------------------------------------
+//					Lighting Functions
+//--------------------------------------------------------
+
+
+//--------------------------------------------------------
+//					Raymarching Functions
+//--------------------------------------------------------
+float GetVoxelCloudDistance(vec3 inSamplePosition) {
+    vec3 sampled_color = texture(fieldNVDFTexture, inSamplePosition).rgb;
+    float result = dot(sampled_color, vec3(1.0, 0.03529415, 0.00069204));
+    return result;
+}
+
+//--------------------------------------------------------
+//					Main Functions
+//--------------------------------------------------------
+
+void main() {
+    
+}

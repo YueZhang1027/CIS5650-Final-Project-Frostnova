@@ -250,6 +250,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateComputeImagesDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(logicalDevice);
     Descriptor::CreateSceneDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
@@ -264,6 +265,9 @@ void Renderer::CreateDescriptors() {
     // Image - Compute shader images
     Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture, modelingDataTexture);
 
+    // Image - Compute Nubis Cubed shader images
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, fieldDataTexture, cloudDetailNoiseTexture);
+
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
 
@@ -275,6 +279,7 @@ void Renderer::CreatePipelines() {
     backgroundShader = new PostShader(device, swapChain, &renderPass, "shaders/post.vert.spv", "shaders/tone.frag.spv");
     reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
     computeShader = new ComputeShader(device, swapChain, &renderPass);
+    computeNubisCubedShader = new ComputeNubisCubedShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
@@ -292,7 +297,10 @@ void Renderer::CreateFrameResources() {
     lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
     weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
     curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
-    modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example1/NubisVoxelCloudNoise.vdb");
+
+    modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
+    fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
+    cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -362,6 +370,12 @@ void Renderer::DestroyFrameResources() {
     delete hiResCloudShapeTexture;
     lowResCloudShapeTexture->CleanUp(logicalDevice);
     delete lowResCloudShapeTexture;
+    weatherMapTexture->CleanUp(logicalDevice);
+    delete weatherMapTexture;
+    curlNoiseTexture->CleanUp(logicalDevice);
+    delete curlNoiseTexture;
+    modelingDataTexture->CleanUp(logicalDevice);
+    delete modelingDataTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -702,6 +716,8 @@ Renderer::~Renderer() {
     delete reprojectShader;
     computeShader->CleanUp();
     delete computeShader;
+    computeNubisCubedShader->CleanUp();
+    delete computeNubisCubedShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();
