@@ -32,7 +32,8 @@ Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Sce
     CreateUI();
 #endif
 
-    RecordCommandBuffers();
+    commandBuffers.resize(swapChain->GetCount());
+    //RecordCommandBuffers();
     RecordComputeCommandBuffer();
     //RecordOffscreenCommandBuffers();
 }
@@ -375,7 +376,8 @@ void Renderer::RecreateFrameResources() {
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
-    RecordCommandBuffers();
+    commandBuffers.resize(swapChain->GetCount());
+    //RecordCommandBuffers();
 }
 
 void Renderer::RecordComputeCommandBuffer() {
@@ -423,6 +425,71 @@ void Renderer::RecordComputeCommandBuffer() {
             throw std::runtime_error("Failed to record compute command buffer");
         }
     }
+}
+
+void Renderer::RecordCommandBuffer(uint32_t index) {
+    // Specify the command pool and number of buffers to allocate
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = graphicsCommandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers");
+    }
+
+    // Start command buffer recording
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    // ~ Start recording ~
+    if (vkBeginCommandBuffer(commandBuffers[index], &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording command buffer");
+    }
+
+    // Begin the render pass
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffers[index];
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = swapChain->GetVkExtent();
+
+    std::array<VkClearValue, 2> clearValues = {};
+    clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearValues[1].depthStencil = { 1.0f, 0 };
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
+
+    vkCmdBeginRenderPass(commandBuffers[index], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    // Bind the graphics pipeline
+    backgroundShader->BindShaderProgram(commandBuffers[index]);
+    backgroundQuad->EnqueueDrawCommands(commandBuffers[index]);
+
+#if USE_UI
+    // UI
+    mouseOverImGuiWindow = io->WantCaptureMouse;
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
+
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[index]);
+#endif
+
+    //// End render pass
+    vkCmdEndRenderPass(commandBuffers[index]);
+
+    // ~ End recording ~
+    if (vkEndCommandBuffer(commandBuffers[index]) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record command buffer");
+    }
+    
 }
 
 void Renderer::RecordCommandBuffers() {
@@ -571,7 +638,7 @@ void Renderer::Frame() {
         return;
     }
 
-    // ImGuiManager::RecordUICommands(swapChain->GetIndex(), swapChain);
+    RecordCommandBuffer(swapChain->GetIndex());
 
     // Submit the command buffer
     VkSubmitInfo submitInfo = {};
@@ -616,6 +683,8 @@ Renderer::~Renderer() {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    vkDestroyDescriptorPool(logicalDevice, uiDescriptorPool, nullptr);
 #endif
 
     vkDeviceWaitIdle(logicalDevice);

@@ -34,6 +34,7 @@ public:
     void DestroyFrameResources();
     void RecreateFrameResources();
 
+    void RecordCommandBuffer(uint32_t index);
     void RecordCommandBuffers();
     void RecordOffscreenCommandBuffers();
     void RecordComputeCommandBuffer();
@@ -86,8 +87,9 @@ private:
 
     // --- UI ---
     GLFWwindow* window;
-    VkDescriptorPool uiDescriptorPool;
     ImGuiIO* io;
+
+    VkDescriptorPool uiDescriptorPool;
 
     bool mouseOverImGuiWindow = false;
 };

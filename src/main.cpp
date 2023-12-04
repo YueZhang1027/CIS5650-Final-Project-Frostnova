@@ -20,6 +20,14 @@ namespace {
         renderer->RecreateFrameResources();
     }
 
+    void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GL_TRUE);
+                break;
+        }
+    }
+
     bool leftMouseDown = false;
     bool rightMouseDown = false;
     double previousX = 0.0;
@@ -27,6 +35,8 @@ namespace {
 
     void mouseDownCallback(GLFWwindow* window, int button, int action, int mods) {
         if (renderer->MouseOverImGuiWindow()) {
+            leftMouseDown = false;
+            rightMouseDown = false;
             return;
         }
 
@@ -101,6 +111,7 @@ int main() {
     renderer = new Renderer(GetGLFWWindow(), device, swapChain, scene, camera);
 
     glfwSetWindowSizeCallback(GetGLFWWindow(), resizeCallback);
+    glfwSetKeyCallback(GetGLFWWindow(), keyCallback);
     glfwSetMouseButtonCallback(GetGLFWWindow(), mouseDownCallback);
     glfwSetCursorPosCallback(GetGLFWWindow(), mouseMoveCallback);
 
