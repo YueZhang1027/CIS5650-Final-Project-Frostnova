@@ -558,6 +558,31 @@ vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
     return result;
 }
 
+vec3 GetSunColor(vec3 rayDir, vec3 sunDir)
+{ 
+    float sunRadius = 3;
+    float sun = acos(clamp(dot(rayDir, sunDir), -0.999999, 0.999999)) * 180.0 / PI;
+    float sunDisc = sunRadius - sun;
+    sunDisc = clamp(sunDisc, 0, 1);
+    float sunIntensity = mix(0.0, 1.0, clamp(sunDir.y, 0, 1));
+    vec3 sunColor = sunDisc * vec3(5, 5, 5) * sunIntensity;
+
+    //star
+    float intensity = 0.0;
+    if (sunDir.y < 0.0)
+    {
+        intensity = 1.0;
+        if (sunDir.y > -0.5)
+        {
+            intensity = mix(0.0, 1.0, -sunDir.y);
+        }
+        vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
+        float starVal = noise(coordFloor) * intensity;
+        sunColor += starVal;
+    }
+
+    return sunColor;
+}
 
 
 void main() 
