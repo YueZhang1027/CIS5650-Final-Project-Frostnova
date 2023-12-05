@@ -2,6 +2,10 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 #define WORKGROUP_SIZE 32
+
+#define ATMOSPHERE_RADIUS 1500000.0
+#define ATMOSPHERE_RADIUS_INNER ATMOSPHERE_RADIUS
+
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
 layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
@@ -22,33 +26,105 @@ layout(set = 2, binding = 1) uniform CameraObjectPrev {
 } cameraPrev;
 
 layout(set = 2, binding = 2) uniform CameraParamObject {
-    vec2 fov;
-    vec2 pixelLength;
+    float halfTanFOV;
+    float aspectRatio;
+    int pixelOffset;
 } cameraParam;
 
-struct Intersection {
-    vec3 normal;
-    vec3 point;
-    float t;
+struct Ray {
+	vec3 mOrigin;
+	vec3 mDirection;
 };
 
+struct Intersection {
+    vec3 mNormal;
+    vec3 mPoint;
+    float mTime;
+};
+
+Ray GenerateRay(vec2 uv) {
+    Ray ray;
+
+    vec3 camLook =   normalize(vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]));
+    vec3 camRight =  normalize(vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]));
+    vec3 camUp =     normalize(vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]));
+
+    vec2 screenPoint = uv * 2.0 - 1.0; // [-1, 1] -> [0, 1]
+
+    vec3 cameraPos = camera.position.xyz;
+    vec3 refPoint = cameraPos - camLook;
+    vec3 p = refPoint 
+             + cameraParam.aspectRatio * screenPoint.x * cameraParam.halfTanFOV * camRight 
+             - screenPoint.y * cameraParam.halfTanFOV * camUp;
+
+    ray.mOrigin = cameraPos;
+    ray.mDirection = normalize(p - cameraPos);
+
+    return ray;
+}
+
+Intersection RaySphereIntersection(Ray ray, vec3 sphereCenter, float sphereRadius) {
+	Intersection isect;
+    isect.mTime = -1.0f;
+    isect.mPoint = vec3(0.0);
+    isect.mNormal = vec3(0.0, 1.0, 0.0);
+
+    vec3 oc = ray.mOrigin - sphereCenter;
+    oc /= sphereRadius;
+
+    float a = dot(ray.mDirection, ray.mDirection);
+    float b = 2.0f * dot(oc, ray.mDirection);
+    float c = dot(oc, oc) - 0.25f;
+    float discriminant = b * b - 4.0f * a * c;
+
+    if (discriminant < 0.0f) {
+        // no intersection
+        return isect;
+    } 
+
+    float t = (-b - sqrt(discriminant)) / (2.0f * a);
+    if (t < 0.0f) {
+        t = (-b + sqrt(discriminant)) / (2.0f * a);
+    }
+
+    if (t >= 0.0) {
+        vec3 p = vec3(oc + t * ray.mDirection);
+        isect.mNormal = normalize(p);
+
+        p *= sphereRadius;
+        p += sphereCenter;
+
+        isect.mPoint = p;
+        isect.mTime = length(p - oc);
+    }
+
+    return isect;
+}
+
 void main() {
-	ivec2 dim = imageSize(sourceImage);
+    ivec2 dim = imageSize(sourceImage);
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; // [0.0, 1.0]
-    vec2 screenPos = gl_GlobalInvocationID.xy - 0.5f * dim; // [-0.5 * dim, 0.5 * dim]
-    vec4 sourceColor = vec4(0.0f);
+    vec4 sourceColor = vec4(0.0);
 
-    // Ray cast current frame
-    vec3 camRight = vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]);
-    vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
-    vec3 camView = vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]);
-
-    vec3 rayOrigin = camera.position.xyz;
-    vec3 rayDirection = normalize(camView
-        - camRight * cameraParam.pixelLength.x * screenPos.x
-        - camUp * cameraParam.pixelLength.y * screenPos.y);
-
-
-
+    // // Step 1: Generate ray
+    // Ray ray = GenerateRay(uv);
+    // 
+    // // Step 2: Ray trace the inner atmosphere -> world position of intersection
+    // vec3 earthCenter = ray.mOrigin;
+    // earthCenter.y = -ATMOSPHERE_RADIUS * 0.5f;
+    // Intersection atmosphereInnerIsect = RaySphereIntersection(ray, earthCenter, ATMOSPHERE_RADIUS_INNER);
+    // 
+    // // Step 3: Convert intersection point to uv in previous frame
+    // vec3 intersectionPos = (cameraPrev.view * vec4(atmosphereInnerIsect.mPoint, 1.0)).xyz;
+    // vec3 oldCamRayDir = normalize(intersectionPos);
+    // oldCamRayDir /= -oldCamRayDir.z;
+    // float oldU = 0.5f + 0.5f * oldCamRayDir.x / (cameraParam.aspectRatio * cameraParam.halfTanFOV);
+    // float oldV = 0.5f - 0.5f * oldCamRayDir.y / cameraParam.halfTanFOV;
+    // vec2 oldUV = vec2(oldU, oldV);
+    // 
+    // // Step 4: Sample previous frame's image at uv if uv in [0, 1] x [0, 1]
+    // sourceColor = imageLoad(sourceImage, clamp(ivec2(oldUV * dim), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
+    
+    sourceColor = imageLoad(sourceImage, ivec2(gl_GlobalInvocationID.xy));
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

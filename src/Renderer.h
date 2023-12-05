@@ -6,16 +6,20 @@
 #include "Camera.h"
 
 #include "Image.h"
-#include "shaderprogram/ReprojectShader.h"
-#include "shaderprogram/ComputeShader.h"
-#include "shaderprogram/PostShader.h"
+#include "shaderprogram/ShaderProgramIncludes.h"
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_glfw.h"
+#include "ImGui/imgui_impl_vulkan.h"
 
 class Renderer {
 public:
     Renderer() = delete;
-    Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* camera);
+    Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Scene* scene, Camera* camera);
     ~Renderer();
+
+    void CreateUI();
+    bool MouseOverImGuiWindow() const { return mouseOverImGuiWindow; }
 
     void CreateCommandPools();
 
@@ -30,13 +34,13 @@ public:
     void DestroyFrameResources();
     void RecreateFrameResources();
 
+    void RecordCommandBuffer(uint32_t index);
     void RecordCommandBuffers();
     void RecordOffscreenCommandBuffers();
     void RecordComputeCommandBuffer();
 
     void UpdateUniformBuffers();
     void Frame();
-
 private:
     Device* device;
     VkDevice logicalDevice;
@@ -54,6 +58,7 @@ private:
     PostShader* backgroundShader;
     ReprojectShader* reprojectShader;
     ComputeShader* computeShader;
+    ComputeNubisCubedShader* computeNubisCubedShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
@@ -71,6 +76,10 @@ private:
     Texture* weatherMapTexture;
     Texture* curlNoiseTexture;
 
+    Texture* modelingDataTexture;
+    Texture* fieldDataTexture;
+    Texture* cloudDetailNoiseTexture;
+
     // --- Geometries ---
     Model* backgroundQuad;
 
@@ -79,4 +88,12 @@ private:
     std::vector<VkCommandBuffer> computeCommandBuffers;
     std::vector<VkCommandBuffer> offscreenCommandBuffers;
     bool swapBackground = false;
+
+    // --- UI ---
+    GLFWwindow* window;
+    ImGuiIO* io;
+
+    VkDescriptorPool uiDescriptorPool;
+
+    bool mouseOverImGuiWindow = false;
 };

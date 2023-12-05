@@ -11,6 +11,7 @@ namespace Descriptor {
     void CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice);
     void CreateImageDescriptorSetLayout(VkDevice logicalDevice);
     void CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice);
+    void CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logicalDevice);
 
     void CreateCameraDescriptorSetLayout(VkDevice logicalDevice);
     void CreateSceneDescriptorSetLayout(VkDevice logicalDevice);
@@ -22,6 +23,8 @@ namespace Descriptor {
     void CreateCameraDescriptorSet(VkDevice logicalDevice, Camera* camera);
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
         Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
+    void CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, 
+        Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
 
     void CleanUp(VkDevice logicalDevice);
@@ -30,6 +33,7 @@ namespace Descriptor {
     extern VkDescriptorSetLayout imageDescriptorSetLayout;
     extern VkDescriptorSetLayout cameraDescriptorSetLayout;
     extern VkDescriptorSetLayout computeImagesDescriptorSetLayout;
+    extern VkDescriptorSetLayout computeNubisCubedImagesDescriptorSetLayout;
     extern VkDescriptorSetLayout sceneDescriptorSetLayout;
 
     extern VkDescriptorPool descriptorPool;
@@ -38,6 +42,7 @@ namespace Descriptor {
     extern VkDescriptorSet imagePrevDescriptorSet;
     extern VkDescriptorSet frameDescriptorSet;
     extern VkDescriptorSet computeImagesDescriptorSet;
+    extern VkDescriptorSet computeNubisCubedImagesDescriptorSet;
 
     extern VkDescriptorSet cameraDescriptorSet;
     extern VkDescriptorSet sceneDescriptorSet;

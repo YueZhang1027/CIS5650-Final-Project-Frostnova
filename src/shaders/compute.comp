@@ -37,6 +37,7 @@ layout(set = 2, binding = 0) uniform CameraObject {
 layout(set = 2, binding = 2) uniform CameraParamObject {
     float halfTanFOV;
     float aspectRatio;
+    int pixelOffset;
 } cameraParam;
 
 layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
@@ -258,7 +259,6 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 
         float loDensity = GetBaseDensity(skewSamplePos, lightHeight);
         if (loDensity > 0.0f) {
-            // float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float curlStrength)
 			float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
 			lightDensity += detailDensity;
 		}
@@ -565,8 +565,9 @@ void main()
     ivec2 dim = imageSize(sourceImage);
 
     // TODO: 1/16 of the pixels after reproject compute shader
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
 
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
+    vec2 uv = vec2(pixel) / dim; 
     Ray ray = GenerateRay(uv);
 
     // Update Sun
@@ -577,9 +578,9 @@ void main()
     if (ray.mDirection.y < 0.0f) {
         vec4 sky = GetSkyColor2(ray.mDirection, sunPos, 0.0);
         vec3 bgColor = sky.rgb;
-		imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), vec4(bgColor, 1.0f));
-		return;
-	}
+	    	imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), vec4(bgColor, 1.0f));
+		    return;
+	   }
 
     // Find start and end point of raymarching
     vec3 earthCenter = ray.mOrigin;
@@ -602,5 +603,5 @@ void main()
 
     vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
-    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+    imageStore(targetImage, pixel, finalColor);
 }

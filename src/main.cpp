@@ -20,12 +20,26 @@ namespace {
         renderer->RecreateFrameResources();
     }
 
+    void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GL_TRUE);
+                break;
+        }
+    }
+
     bool leftMouseDown = false;
     bool rightMouseDown = false;
     double previousX = 0.0;
     double previousY = 0.0;
 
     void mouseDownCallback(GLFWwindow* window, int button, int action, int mods) {
+        if (renderer->MouseOverImGuiWindow()) {
+            leftMouseDown = false;
+            rightMouseDown = false;
+            return;
+        }
+
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
                 leftMouseDown = true;
@@ -94,16 +108,17 @@ int main() {
     camera = new Camera(device, 1920.f / 1080.f);
 
     Scene* scene = new Scene(device);
-    renderer = new Renderer(device, swapChain, scene, camera);
+    renderer = new Renderer(GetGLFWWindow(), device, swapChain, scene, camera);
 
     glfwSetWindowSizeCallback(GetGLFWWindow(), resizeCallback);
+    glfwSetKeyCallback(GetGLFWWindow(), keyCallback);
     glfwSetMouseButtonCallback(GetGLFWWindow(), mouseDownCallback);
     glfwSetCursorPosCallback(GetGLFWWindow(), mouseMoveCallback);
 
     while (!ShouldQuit()) {
         glfwPollEvents();
-        renderer->UpdateUniformBuffers();
         renderer->Frame();
+        renderer->UpdateUniformBuffers();
     }
 
     vkDeviceWaitIdle(device->GetVkDevice());

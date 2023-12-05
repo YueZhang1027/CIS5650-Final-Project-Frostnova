@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include "Device.h"
+#include "vdb/VDBLoader.h"
 
 struct Texture {
 	VkImage image;
@@ -29,6 +30,8 @@ namespace Image {
     void FromFile(Device* device, VkCommandPool commandPool, const char* path, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void FromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory); // to constuct 3D
 
+    void FromVDBFile(Device* device, VkCommandPool commandPool, const char* path, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout layout, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+
     // --- Specific Texture Creation ---
     Texture* CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format);
     Texture* CreateDepthTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent);
@@ -36,4 +39,8 @@ namespace Image {
 
     Texture* CreateTextureFromFile(Device* device, VkCommandPool commandPool, const char* path);
     Texture* CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension);
+
+    Texture* CreateTextureFromVDBFile(Device* device, VkCommandPool commandPool, const char* path);
+    
+    unsigned char* GenerateVDBSlice(const std::vector<VDatAlt>& data, unsigned int depth, glm::vec3 dimension);
 }

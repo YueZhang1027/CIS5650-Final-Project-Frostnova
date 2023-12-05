@@ -6,14 +6,17 @@
 
 #include "Descriptor.h"
 
+#define USE_UI 0
+
 static constexpr unsigned int WORKGROUP_SIZE = 32;
 
-Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* camera)
+Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Scene* scene, Camera* camera)
   : device(device),
     logicalDevice(device->GetVkDevice()),
     swapChain(swapChain),
     scene(scene),
-    camera(camera) {
+    camera(camera),
+    window(window) {
 
     CreateCommandPools();
     CreateRenderPass();
@@ -25,7 +28,12 @@ Renderer::Renderer(Device* device, SwapChain* swapChain, Scene* scene, Camera* c
     CreateDescriptors();
     CreatePipelines();
 
-    RecordCommandBuffers();
+#if USE_UI
+    CreateUI();
+#endif
+
+    commandBuffers.resize(swapChain->GetCount());
+    //RecordCommandBuffers();
     RecordComputeCommandBuffer();
     //RecordOffscreenCommandBuffers();
 }
@@ -242,6 +250,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSetLayout(logicalDevice);
     Descriptor::CreateCameraDescriptorSetLayout(logicalDevice);
     Descriptor::CreateComputeImagesDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(logicalDevice);
     Descriptor::CreateSceneDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
@@ -256,6 +265,9 @@ void Renderer::CreateDescriptors() {
     // Image - Compute shader images
     Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
 
+    // Image - Compute Nubis Cubed shader images
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, fieldDataTexture, cloudDetailNoiseTexture);
+
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
 
@@ -267,6 +279,7 @@ void Renderer::CreatePipelines() {
     backgroundShader = new PostShader(device, swapChain, &renderPass, "shaders/post.vert.spv", "shaders/tone.frag.spv");
     reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
     computeShader = new ComputeShader(device, swapChain, &renderPass);
+    computeNubisCubedShader = new ComputeNubisCubedShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
@@ -284,6 +297,10 @@ void Renderer::CreateFrameResources() {
     lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
     weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
     curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
+
+    modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
+    fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
+    cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -353,6 +370,12 @@ void Renderer::DestroyFrameResources() {
     delete hiResCloudShapeTexture;
     lowResCloudShapeTexture->CleanUp(logicalDevice);
     delete lowResCloudShapeTexture;
+    weatherMapTexture->CleanUp(logicalDevice);
+    delete weatherMapTexture;
+    curlNoiseTexture->CleanUp(logicalDevice);
+    delete curlNoiseTexture;
+    modelingDataTexture->CleanUp(logicalDevice);
+    delete modelingDataTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -367,7 +390,8 @@ void Renderer::RecreateFrameResources() {
     CreateFrameResources();
 
     backgroundShader->CreateShaderProgram();
-    RecordCommandBuffers();
+    commandBuffers.resize(swapChain->GetCount());
+    //RecordCommandBuffers();
 }
 
 void Renderer::RecordComputeCommandBuffer() {
@@ -396,12 +420,18 @@ void Renderer::RecordComputeCommandBuffer() {
         }
 
         // Reproject
-        //reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
-        computeShader->BindShaderProgram(computeCommandBuffers[i]);
+        reprojectShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
         vkCmdDispatch(computeCommandBuffers[i],
             static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+
+        computeShader->BindShaderProgram(computeCommandBuffers[i]);
+        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             1);
 
         // ~ End recording ~
@@ -409,6 +439,71 @@ void Renderer::RecordComputeCommandBuffer() {
             throw std::runtime_error("Failed to record compute command buffer");
         }
     }
+}
+
+void Renderer::RecordCommandBuffer(uint32_t index) {
+    // Specify the command pool and number of buffers to allocate
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = graphicsCommandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers");
+    }
+
+    // Start command buffer recording
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    // ~ Start recording ~
+    if (vkBeginCommandBuffer(commandBuffers[index], &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording command buffer");
+    }
+
+    // Begin the render pass
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffers[index];
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = swapChain->GetVkExtent();
+
+    std::array<VkClearValue, 2> clearValues = {};
+    clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearValues[1].depthStencil = { 1.0f, 0 };
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
+
+    vkCmdBeginRenderPass(commandBuffers[index], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    // Bind the graphics pipeline
+    backgroundShader->BindShaderProgram(commandBuffers[index]);
+    backgroundQuad->EnqueueDrawCommands(commandBuffers[index]);
+
+#if USE_UI
+    // UI
+    mouseOverImGuiWindow = io->WantCaptureMouse;
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
+
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[index]);
+#endif
+
+    //// End render pass
+    vkCmdEndRenderPass(commandBuffers[index]);
+
+    // ~ End recording ~
+    if (vkEndCommandBuffer(commandBuffers[index]) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record command buffer");
+    }
+    
 }
 
 void Renderer::RecordCommandBuffers() {
@@ -455,6 +550,19 @@ void Renderer::RecordCommandBuffers() {
         // Bind the graphics pipeline
         backgroundShader->BindShaderProgram(commandBuffers[i]);
         backgroundQuad->EnqueueDrawCommands(commandBuffers[i]);
+
+#if USE_UI
+        // UI
+        mouseOverImGuiWindow = io->WantCaptureMouse;
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::ShowDemoWindow();
+
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
+#endif
 
         //// End render pass
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -523,6 +631,7 @@ void Renderer::RecordOffscreenCommandBuffers() {
 void Renderer::UpdateUniformBuffers() {
     scene->UpdateTime(); // time
     camera->UpdatePrevBuffer(); // camera prev
+    camera->UpdatePixelOffset(); // camera pixel offset
 }
 
 void Renderer::Frame() {
@@ -542,6 +651,8 @@ void Renderer::Frame() {
         RecreateFrameResources();
         return;
     }
+
+    RecordCommandBuffer(swapChain->GetIndex());
 
     // Submit the command buffer
     VkSubmitInfo submitInfo = {};
@@ -581,6 +692,15 @@ void Renderer::Frame() {
 }
 
 Renderer::~Renderer() {
+#if USE_UI
+    // UI cleanup
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    vkDestroyDescriptorPool(logicalDevice, uiDescriptorPool, nullptr);
+#endif
+
     vkDeviceWaitIdle(logicalDevice);
 
     // TODO: destroy any resources you created
@@ -596,9 +716,48 @@ Renderer::~Renderer() {
     delete reprojectShader;
     computeShader->CleanUp();
     delete computeShader;
+    computeNubisCubedShader->CleanUp();
+    delete computeNubisCubedShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();
     vkDestroyCommandPool(logicalDevice, computeCommandPool, nullptr);
     vkDestroyCommandPool(logicalDevice, graphicsCommandPool, nullptr);
+}
+
+// UI section
+void Renderer::CreateUI() {
+    // Create UI descriptor pool
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, swapChain->GetCount() },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, swapChain->GetCount() * 2 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = swapChain->GetCount() * 2;
+    pool_info.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
+    pool_info.pPoolSizes = pool_sizes;
+    if (vkCreateDescriptorPool(logicalDevice, &pool_info, nullptr, &uiDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("Cannot allocate UI descriptor pool!");
+    }
+
+    ImGui::CreateContext();
+    io = &ImGui::GetIO();
+
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = device->GetInstance()->GetVkInstance();
+    init_info.PhysicalDevice = device->GetInstance()->GetPhysicalDevice();
+    init_info.Device = device->GetVkDevice();
+    init_info.ImageCount = swapChain->GetCount();
+    init_info.MinImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+    init_info.QueueFamily = device->GetInstance()->GetQueueFamilyIndices()[QueueFlags::Graphics];
+    init_info.Queue = device->GetQueue(QueueFlags::Graphics);
+    init_info.DescriptorPool = uiDescriptorPool;
+
+    ImGui_ImplVulkan_Init(&init_info, renderPass);
 }
