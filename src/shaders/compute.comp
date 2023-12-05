@@ -7,6 +7,9 @@
 #define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
+#define ONE_DAY 100.0f
+
+
 
 // TODO: check go through cloud?
 // Atmosphere
@@ -394,6 +397,168 @@ Intersection RaySphereIntersection(Ray ray, vec3 sphereCenter, float sphereRadiu
     return isect;
 }
 
+//--------------------------------------------------------
+//					        Sky
+//--------------------------------------------------------
+
+float depolarizationFactor = 0.137;
+float luminance = 1.0;
+float mieCoefficient = 0.0074;
+float mieDirectionalG = 0.468;
+vec3 mieKCoefficient = vec3(0.686, 0.678, 0.666);
+float mieV = 4.007;
+float mieZenithLength = 7100;
+float numMolecules = 2.542e25;
+vec3 primaries = vec3(6.8e-7, 5.5e-7, 4.5e-7);
+float rayleigh = 5.75;
+float rayleighZenithLength = 3795;
+float refractiveIndex = 1.000128;
+float sunAngularDiameterDegrees = 0.032;
+float sunIntensityFactor = 1024;
+float sunIntensityFalloffSteepness = 1.4;
+float tonemapWeighting = 19.50;
+float turbidity = 12.575;
+vec3 UP = vec3(0.0, 1.0, 0.0);
+
+float noise(vec3 coord)
+{
+    float starThreshold = 0.97;
+    float n = fract(415.92653 * (0.7 * cos(37.3 * coord.x) + 1.2 * cos(56.1 * coord.y) + 0.2 * cos(45.8 * coord.z)));
+    if (n >= starThreshold)
+    {
+        n = pow((n - starThreshold) / (1.0 - starThreshold), 10.0);
+    }
+    else n = 0.0;
+    return n;
+}
+
+vec3 totalRayleigh(vec3 lambda)
+{
+	return (8.0 * pow(PI, 3.0) * pow(pow(refractiveIndex, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * depolarizationFactor)) / (3.0 * numMolecules * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * depolarizationFactor));
+}
+
+vec3 totalMie(vec3 lambda, vec3 K, float T)
+{
+	float c = 0.2 * T * 10e-18;
+	return 0.434 * c * PI * pow((2.0 * PI) / lambda, vec3(mieV - 2.0)) * K;
+}
+
+float rayleighPhase(float cosTheta)
+{
+	return (3.0 / (16.0 * PI)) * (1.0 + pow(cosTheta, 2.0));
+}
+
+float henyeyGreensteinPhase(float cosTheta, float g)
+{
+	return (1.0 / (4.0 * PI)) * ((1.0 - pow(g, 2.0)) / pow(1.0 - 2.0 * g * cosTheta + pow(g, 2.0), 1.5));
+}
+
+float sunIntensity(float zenithAngleCos)
+{
+	float cutoffAngle = PI / 1.95; // Earth shadow hack
+	return sunIntensityFactor * max(0.0, 1.0 - exp(-((cutoffAngle - acos(zenithAngleCos)) / sunIntensityFalloffSteepness)));
+}
+
+vec3 Uncharted2Tonemap(vec3 W)
+{
+    float A = 0.15; 
+    float B = 0.50; 
+    float C = 0.10; 
+    float D = 0.20; 
+    float EE = 0.02; 
+    float F = 0.30; 
+	return ((W * (A * W + C * B) + D * EE) / (W * (A * W + B) + D * F)) - EE / F;
+}
+
+vec3 GetSunPosition()
+{ 
+    float time = mod(time.totalTime, ONE_DAY);
+
+    float currInclination = time * 2 * PI/ ONE_DAY;
+    float currAzimuth = 2 * PI;
+    float theta = PI * (currInclination - 0.5);
+	float phi = 2 * PI * (currAzimuth - 0.5);
+		
+	float distance = 400000;
+    vec3 sunPosition;
+	sunPosition.x = distance * cos(phi);
+	sunPosition.y = distance * sin(phi) * sin(theta);
+	sunPosition.z = distance * sin(phi) * cos(theta);
+
+    return sunPosition;
+}
+
+vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
+{ 
+    //star
+    float intensity = 0.0;
+    if (sunDir.y < 0.0)
+    {
+        intensity = 1.0;
+        if (sunDir.y > -0.75)
+        {
+            intensity = mix(0.0, 1.0, -sunDir.y);
+        }
+        vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
+        float starVal = noise(coordFloor) * intensity * 0.8;
+        return vec3(starVal);
+    }
+    return vec3(0);
+}
+
+vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
+{
+    // Rayleigh coefficient
+	float sunfade = 1.0 - clamp(1.0 - exp((sunPosition.y / 450000.0)), 0.0, 1.0);
+	float rayleighCoefficient = rayleigh - (1.0 * (1.0 - sunfade));
+	vec3 betaR = totalRayleigh(primaries) * rayleighCoefficient;
+	
+	// Mie coefficient
+	vec3 betaM = totalMie(primaries, mieKCoefficient, turbidity) * mieCoefficient;
+	
+	// Optical length, cutoff angle at 90 to avoid singularity
+	float zenithAngle = acos(max(0.0, dot(UP, rayDir)));
+	float denom = cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253);
+	float sR = rayleighZenithLength / denom;
+	float sM = mieZenithLength / denom;
+	
+	// Combined extinction factor
+	vec3 Fex = exp(-(betaR * sR + betaM * sM));
+	
+	// In-scattering
+	vec3 sunDirection = normalize(sunPosition);
+	float cosTheta = dot(rayDir, sunDirection);
+	vec3 betaRTheta = betaR * rayleighPhase(cosTheta * 0.5 + 0.5);
+	vec3 betaMTheta = betaM * henyeyGreensteinPhase(cosTheta, mieDirectionalG);
+	float sunE = sunIntensity(dot(sunDirection, UP));
+	vec3 Lin = pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * (1.0 - Fex), vec3(1.5));
+	Lin *= mix(vec3(1.0), pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * Fex, vec3(0.5)), clamp(pow(1.0 - dot(UP, sunDirection), 5.0), 0.0, 1.0));
+	
+	// Composition + solar disc
+	float sunAngularDiameterCos = cos(sunAngularDiameterDegrees);
+	float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
+	vec3 L0 = vec3(0.1) * Fex;
+    float sunHDR = mix(19000.0, 1, cloudDensity);
+	L0 += sunE * sunHDR * Fex * sundisk * (1.0 - cloudDensity);
+	vec3 texColor = Lin + L0;
+	texColor *= 0.04;
+	texColor += vec3(0.0, 0.001, 0.0025) * 0.3;
+	
+	// Tonemapping
+	vec3 whiteScale = 1.0 / Uncharted2Tonemap(vec3(tonemapWeighting));
+	vec3 curr = Uncharted2Tonemap((log2(2.0 / pow(luminance, 4.0))) * texColor);
+	vec3 color = curr * whiteScale;
+	vec3 retColor = pow(color, vec3(1.0 / (1.2 + (1.2 * sunfade))));
+
+    // Star
+    retColor += GetStarColor(rayDir, sunDirection) * (1.0 - cloudDensity);
+
+    vec4 result;
+    result.xyz = retColor;
+    result.a = mix(1, 40, clamp(sunDirection.y, 0, 1));
+    return result;
+}
+
 
 void main() 
 {
@@ -405,12 +570,15 @@ void main()
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
     Ray ray = GenerateRay(uv);
 
-    // Background color
-    vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
-
+    // Update Sun
+    vec3 sunPos = GetSunPosition();
+    vec3 sunDir = normalize(sunPos);
+  
     // below horizon, return
     if (ray.mDirection.y < 0.0f) {
-		imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), vec4(bgColor, 1.0f));
+        vec4 sky = GetSkyColor2(ray.mDirection, sunPos, 0.0);
+        vec3 bgColor = sky.rgb;
+		imageStore(targetImage, pixel, vec4(bgColor, 1.0f));
 		return;
 	}
 
@@ -424,8 +592,12 @@ void main()
     // Ray march
     float transmittance = 1.0f;
     float accumDensity = 0.0f;
-    RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, accumDensity, transmittance);
-	
+    RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, sunDir, accumDensity, transmittance);
+
+    // Background color
+    vec4 sky = GetSkyColor2(ray.mDirection, sunPos, accumDensity);
+    vec3 bgColor = sky.rgb;
+
     accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
     vec3 cloudColor = (40.0 * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
 
