@@ -20,10 +20,28 @@ namespace {
         renderer->RecreateFrameResources();
     }
 
+    void keyPressedEvent(Direction dir)
+    {
+        std::cout << "direction: " << dir << std::endl;
+        camera->UpdatePosition(dir);
+    }
+
     void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
         switch (key) {
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(window, GL_TRUE);
+                break;
+            case GLFW_KEY_W:
+                keyPressedEvent(Direction::FORWARD);
+                break;
+            case GLFW_KEY_S:
+                keyPressedEvent(Direction::BACKWARD);
+                break;
+            case GLFW_KEY_A:
+                keyPressedEvent(Direction::LEFT);
+                break;
+            case GLFW_KEY_D:
+                keyPressedEvent(Direction::RIGHT);
                 break;
         }
     }
