@@ -8,6 +8,26 @@
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
 
+// Cloud animation
+#define CLOUD_ANIMATE_SPEED 1.f
+#define CLOUD_WIND_OFFSET vec2(0.1, 0.1)
+
+#define EPSILON 0.0001
+
+// Mip Map
+#define USE_FINE_DETAIL_MIPMAP false
+#define USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE 0.1
+
+// Raymarching
+#define MAX_RAYMARCHING_DISTANCE 1000.0
+#define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.001
+#define VOXEL_BOUND_MIN vec3(-1000.0, -1000.0, -1000.0)
+#define VOXEL_BOUND_MAX vec3(1000.0, 1000.0, 1000.0)
+
+// Density
+#define DENSITY_SCALE 0.1
+
+
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
 layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
@@ -63,6 +83,12 @@ struct CloudRenderingRaymarchInfo {
     float mStepSize;       // step size
 };
 
+
+struct CloudRenderingPixelData {
+    float mDensity;
+    float mTransmittance;
+};
+
 struct Ray {
 	vec3 mOrigin;
 	vec3 mDirection;
@@ -73,6 +99,7 @@ struct Intersection {
     vec3 mPoint;
     float mTime;
 };
+
 
 //--------------------------------------------------------
 //					ATMOSPHERE FUNCTIONS
@@ -100,15 +127,123 @@ float GetFractionFromValue(float inValue, float inMin, float inMax) {
     return clamp((inValue - inMin) / (inMax - inMin), 0, 1);
 }
 
+float GetVoxelCloudMipLevel(CloudRenderingRaymarchInfo inRaymarchInfo, float inMipLevel) {
+    // Apply Distance based Mip Offset
+    float mipmap_level = USE_FINE_DETAIL_MIPMAP ? inMipLevel : log2(1.0 + abs(inRaymarchInfo.mDistance * USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE)) + inMipLevel;
+    return mipmap_level;
+}
+
 //--------------------------------------------------------
 //					Density Sample Functions
 //--------------------------------------------------------
+VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float inMipLevel) {
+    VoxelCloudModelingData modeling_data;
+    vec3 Modeling_NVDF = textureLod(modelingNVDFTexture, inSamplePosition, inMipLevel).rgb;
+    modeling_data.mDimensionalProfile = Modeling_NVDF.r;
+    modeling_data.mDetailType = Modeling_NVDF.g;
+    modeling_data.mDensityScale = Modeling_NVDF.b;
 
+    return modeling_data;
+}
+
+// Detail density sample
+float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSamplePosition, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
+{
+    // Step1-Apply wind offset
+    inSamplePosition -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED;
+
+    // Step2-Sample noise
+    float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
+    // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
+
+    vec4 noise = textureLod(cloudDetailNoiseTexture, inSamplePosition * 0.01, mipmap_level);
+
+    // Step3-Define Detail Erosion
+    // wispy
+    float wispy_noise = mix(noise.r, noise.g, inDimensionalProfile);
+
+    // billowy
+    float billowy_type_gradient = pow(inDimensionalProfile, 0.25);
+    float billowy_noise = mix(noise.b * 0.3, noise.a * 0.3, billowy_type_gradient);
+
+    // High Noise composite - blend to wispy as the density scale decreases.
+    float noise_composite = mix(wispy_noise, billowy_noise, inType);
+
+    // high frequency detail?
+    if (inHFDetails)
+    {
+        float hhf_wisps = 1.0 - pow(abs(abs(noise.g * 2.0 - 1.0) * 2.0 - 1.0), 4.0);
+        float hhf_billows = pow(abs(abs(noise.a * 2.0 - 1.0) * 2.0 - 1.0), 2.0);
+        float hhf_noise = clamp(mix(hhf_wisps, hhf_billows, inType), 0, 1);
+        float hhf_noise_distance_range_blender = ValueRemap(inRaymarchInfo.mDistance, 50.0, 150.0, 0.9, 1.0); // unit: meter
+        noise_composite = mix(hhf_noise, noise_composite, hhf_noise_distance_range_blender);
+    }
+
+    // composite noise
+    float uprezzed_density = ValueErosion(inDimensionalProfile, noise_composite);
+    float powered_density_scale = pow(clamp(inDensityScale, 0, 1), 4.0);
+    uprezzed_density *= powered_density_scale;
+
+    // make low frequency region more sharp
+    uprezzed_density = pow(uprezzed_density, mix(0.3, 0.6, max(EPSILON, powered_density_scale)));
+
+    if(inHFDetails)
+    {
+        float distance_range_blender = GetFractionFromValue(inRaymarchInfo.mDistance, 50.0, 150.0);
+        uprezzed_density = pow(uprezzed_density, mix(0.5, 1.0, distance_range_blender)) * mix(0.666, 1.0, distance_range_blender);
+    }
+
+    return uprezzed_density;
+}
+
+
+VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSamplePosition, float inMipLevel, bool inHFDetails) {
+    VoxelCloudModelingData modeling_data;
+    VoxelCloudDensitySamples density_samples;
+
+    vec3 sample_coord = (inSamplePosition - VOXEL_BOUND_MIN) / (VOXEL_BOUND_MAX - VOXEL_BOUND_MIN);
+    modeling_data = GetVoxelCloudModelingData(sample_coord, inMipLevel);
+    float dimensional_profile = modeling_data.mDimensionalProfile;
+    float type = modeling_data.mDetailType;
+    float density_scale = modeling_data.mDensityScale;
+
+    if (dimensional_profile > 0.0) {
+        density_samples.mProfile = dimensional_profile * DENSITY_SCALE;
+
+        density_samples.mFull = GetUprezzedVoxelCloudDensity(inRaymarchInfo, inSamplePosition, dimensional_profile, type, density_scale, inMipLevel, inHFDetails) 
+                                    * ValueRemap(inRaymarchInfo.mDistance, 10.0, 120.0, 0.25, 1.0);
+    } else {
+        density_samples.mProfile = 0.0;
+		density_samples.mFull = 0.0;
+    }
+
+    return density_samples;
+}
 
 //--------------------------------------------------------
 //					Lighting Functions
 //--------------------------------------------------------
+float HG(float cos_angle, float g) {
+    float g2 = g * g;
+    float val = ((1.0 - g2) / pow(1.0 + g2 - 2.0 * g * cos_angle , 1.5)) * ONE_OVER_FOURPI;
+    return val ;
+}
 
+// float InOutScatter(float cos_angle) {
+//     float first_hg = HG(cos_angle, cloud_inscatter);
+//     float second_hg = cloud_silver_intensity * pow (clamp(cos_angle, 0, 1), cloud_silver_exponent);
+//     float in_scatter_hg = max(first_hg, second_hg);
+//     float out_scatter_hg = HG (cos_angle , -cloud_outscatter);
+//     return lerp(in_scatter_hg, out_scatter_hg ,cloud_in_vs_outscatter);
+// }
+
+
+void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, CloudRenderingRaymarchInfo raymarch_info, inout CloudRenderingPixelData ioPixelData, bool inHFDetails) {
+    float ms_volume = sampleData.mProfile;
+    // float cloud_distance = GetVoxelCloudDistance(inSamplePosition);
+    
+    
+}
 
 //--------------------------------------------------------
 //					Raymarching Functions
@@ -119,10 +254,86 @@ float GetVoxelCloudDistance(vec3 inSamplePosition) {
     return result;
 }
 
+void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
+    CloudRenderingRaymarchInfo raymarch_info;
+    raymarch_info.mDistance = 0.0;
+
+    while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT && 
+        raymarch_info.mDistance < MAX_RAYMARCHING_DISTANCE) {
+        // Get Sample Position
+        vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
+
+        // Adaptive Step Size
+        float adaptive_step_size = max( 1.0, max(sqrt(raymarch_info.mDistance), EPSILON) * 0.08);
+
+        raymarch_info.mCloudDistance = GetVoxelCloudDistance(sample_position);
+
+        // Max SDF and Step Size
+        raymarch_info.mStepSize = max(raymarch_info.mCloudDistance, adaptive_step_size);
+
+        // Jitter
+        
+
+        if (raymarch_info.mCloudDistance < 0.0f) {
+            float inMipLevel = 0.0f;
+            // density sample data
+			VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, sample_position, inMipLevel, true);
+
+
+
+            // lighting
+            // IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info, ioPixelData, false);
+		}
+
+
+        raymarch_info.mDistance += raymarch_info.mStepSize;
+	}
+}
+
+Ray GenerateRay(vec2 uv) {
+    Ray ray;
+
+    vec3 camLook =   normalize(vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]));
+    vec3 camRight =  normalize(vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]));
+    vec3 camUp =     normalize(vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]));
+
+    vec2 screenPoint = uv * 2.0 - 1.0;
+
+    vec3 cameraPos = camera.cameraPosition.xyz;
+    vec3 refPoint = cameraPos - camLook;
+    vec3 p = refPoint 
+             + cameraParam.aspectRatio * screenPoint.x * cameraParam.halfTanFOV * camRight 
+             - screenPoint.y * cameraParam.halfTanFOV * camUp;
+
+    ray.mOrigin = cameraPos;
+    ray.mDirection = normalize(p - cameraPos);
+
+    return ray;
+}
+
 //--------------------------------------------------------
 //					Main Functions
 //--------------------------------------------------------
 
 void main() {
-    
+    // Get UV
+    ivec2 dim = imageSize(sourceImage);
+
+    // 1/16 of the pixels after reproject compute shader
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
+
+    vec2 uv = vec2(pixel) / dim; 
+
+    // Get Camera Ray
+    Ray ray = GenerateRay(uv);
+
+    CloudRenderingPixelData ioPixelData;
+    ioPixelData.mDensity = 0.0;
+    ioPixelData.mTransmittance = 1.0;
+
+	// Raymarch
+	RaymarchVoxelClouds(ray, ioPixelData);
+
+	// Write to image
+	// imageStore(targetImage, pixel, vec4(ioPixelData.mDensity, ioPixelData.mTransmittance, 0.0, 0.0));
 }

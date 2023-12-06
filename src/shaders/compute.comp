@@ -209,36 +209,6 @@ float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float 
 //--------------------------------------------------------
 //					Lighting Functions
 //--------------------------------------------------------
-vec3[] samples = vec3[6](
-	 vec3(0, 0.6, 0),
-     vec3(0, 0.5, 0.05),
-     vec3(0.1, 0.75, 0),
-     vec3(0.2, 2.5, 0.3),
-     vec3(0, 6, 0),
-     vec3(-0.1, 1, -0.2)
-);
-
-void CalculateLightingSamples(Ray ray, vec3 lightDir) {
-
-    vec3 maxCompUnitVector;
-    if(abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2])) {
-        maxCompUnitVector = vec3(abs(lightDir[0]), 0.0, 0.0);
-    }
-    else if(abs(lightDir[1]) > abs(lightDir[0]) && abs(lightDir[1]) > abs(lightDir[2])) {
-        maxCompUnitVector = vec3(0.0, abs(lightDir[1]), 0.0);
-    }
-    else {
-        maxCompUnitVector = vec3(0.0, 0.0, abs(lightDir[2]));
-    }
-
-    vec3 zComponent = cross(lightDir, maxCompUnitVector);
-    vec3 xComponent = cross(zComponent, lightDir);
-    mat3 sunRotMatrix = mat3(xComponent, lightDir, zComponent);
-
-    for (int i = 0; i < 6; i++) {
-		samples[i] = sunRotMatrix * samples[i];
-	}
-}
 
 float HG(float cosTheta, float eccentricity) {
     float inv = 1.0 / pow(1.0 - 2.0 * eccentricity * cosTheta + eccentricity * eccentricity, 1.5);
@@ -250,20 +220,18 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
     vec3 color = vec3(0.f);
     float lightDensity = 0.0f;
 
-    for (int i = 0; i < 6; i++) {
-        vec3 lightPos = samplePos + (stepSize * samples[i] * float(i));
-        vec3 lightProj = GetProjectedShellPoint(lightPos, earthCenter);
+    vec3 lightPos = samplePos;
+    vec3 lightProj = GetProjectedShellPoint(lightPos, earthCenter);
 
-        float lightHeight = GetRelativeHeight(lightPos, lightProj, ATMOSPHERE_THICKNESS);
+    float lightHeight = GetRelativeHeight(lightPos, lightProj, ATMOSPHERE_THICKNESS);
 
-        vec3 skewSamplePos = SkewSamplePointWithWind(lightPos, lightHeight);
+    vec3 skewSamplePos = SkewSamplePointWithWind(lightPos, lightHeight);
 
-        float loDensity = GetBaseDensity(skewSamplePos, lightHeight);
-        if (loDensity > 0.0f) {
-			float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
-			lightDensity += detailDensity;
-		}
-    }
+    float loDensity = GetBaseDensity(skewSamplePos, lightHeight);
+    if (loDensity > 0.0f) {
+		float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
+		lightDensity += detailDensity;
+	}
 
     float beersLaw = exp(-lightDensity);
     float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * lightDensity));
@@ -284,7 +252,6 @@ void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t,
     float stepSize = 0.05 * ATMOSPHERE_THICKNESS;
 
     // Lighting
-    CalculateLightingSamples(ray, lightDir);
     float cosTheta = dot(ray.mDirection, normalize(lightDir));
     float henyeyGreenstein = HG(cosTheta, 0.2f); // TODO: MANIPULATE
 
