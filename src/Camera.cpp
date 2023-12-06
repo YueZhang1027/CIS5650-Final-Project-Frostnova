@@ -14,6 +14,7 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     phi = 0.0f;
 
     target = glm::vec3(0.0f, 30.0f, 0.0f);
+    right = glm::vec3(30.0f, 30.0f, 0.0f);
 
     glm::vec3 eye = glm::vec3(0.0f, 0.0f, 0.0f);
     lookAtDir = target - eye;
@@ -72,7 +73,7 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
 
     target = glm::vec3(finalTransform * glm::vec4(0.f, 0.f, -30.f, 1.0f));
     lookAtDir = target - glm::vec3(cameraBufferObject.cameraPosition);
-    std::cout << lookAtDir.x << " " << lookAtDir.y << " " << lookAtDir.z << std::endl;
+    right = glm::vec3(finalTransform * glm::vec4(30.f, 0.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
 
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
@@ -90,6 +91,14 @@ void Camera::UpdatePosition(Direction dir)
     case BACKWARD:
         if (glm::length(lookAtDir) != 0.f)
             vecDir = -glm::normalize(lookAtDir);
+        break;
+    case LEFT:
+        if (glm::length(right) != 0.f)
+            vecDir = glm::normalize(right);
+        break;
+    case RIGHT:
+        if (glm::length(right) != 0.f)
+            vecDir = -glm::normalize(right);
         break;
     default: return;
     }

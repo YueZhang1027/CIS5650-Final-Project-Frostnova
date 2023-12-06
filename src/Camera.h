@@ -48,6 +48,7 @@ private:
 
     glm::vec3 lookAtDir;
     glm::vec3 target;
+    glm::vec3 right;
 
 public:
     Camera(Device* device, float aspectRatio);
