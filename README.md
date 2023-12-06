@@ -63,6 +63,29 @@ For operating systems other than Windows, refer to the [official GitHub page for
 ./vcpkg integrate install
 ```
 
+### 4. Alter CMakeList
+
+To assist setting up project properties, the CMakeList includes `find_package(OpenVDB REQUIRED)`, which needs a line before it to locate the installed OpenVDB directory. Before building the project, open the CMakeList.txt in the project directory(not the one in /src), change the line 10 to the following:
+
+```
+include(<path to vcpkg>\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake)
+```
+An example would be:
+```
+include(C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake)
+```
+## Interaction Guide
+### Camera Movement
+On your keyboard,
+
+```
+W - Move forward
+S - Move backward
+A - Move left
+D - Move right
+1 - Move up
+2 - Move down
+```
 ## Algorithms and Approaches
 ### Cloud Modeling
 There are two major inputs containing the information to render a cloud. `Modeling Data` stores information defining the overall shape of the cloud, which can be loaded from `.vdb` files and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. Both of the input data files can be generated from a noise generator as a Houdini Asset provided by Nubis3 team.

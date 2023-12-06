@@ -25,6 +25,24 @@ namespace {
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(window, GL_TRUE);
                 break;
+            case GLFW_KEY_W:
+                camera->UpdatePosition(Direction::FORWARD);
+                break;
+            case GLFW_KEY_S:
+                camera->UpdatePosition(Direction::BACKWARD);
+                break;
+            case GLFW_KEY_A:
+                camera->UpdatePosition(Direction::LEFT);
+                break;
+            case GLFW_KEY_D:
+                camera->UpdatePosition(Direction::RIGHT);
+                break;
+            case GLFW_KEY_1:
+                camera->UpdatePosition(Direction::UP);
+                break;
+            case GLFW_KEY_2:
+                camera->UpdatePosition(Direction::DOWN);
+                break;           
         }
     }
 
