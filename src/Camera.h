@@ -10,7 +10,9 @@ enum Direction
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT
+    RIGHT,
+    UP,
+    DOWN
 };
 
 struct CameraBufferObject {
@@ -47,8 +49,8 @@ private:
     float r, theta, phi;
 
     glm::vec3 lookAtDir;
-    glm::vec3 target;
     glm::vec3 right;
+    glm::vec3 up;
 
 public:
     Camera(Device* device, float aspectRatio);
