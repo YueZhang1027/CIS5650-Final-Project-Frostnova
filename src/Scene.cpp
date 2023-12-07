@@ -1,6 +1,10 @@
 #include "Scene.h"
 #include "BufferUtils.h"
 
+const float ONE_DAY = 40.0f;
+const float PI = 3.14159265f;
+const float SUN_DISTANCE = 400000.0f;
+
 Scene::Scene(Device* device) : device(device) {
     BufferUtils::CreateBuffer(device, sizeof(Time), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, timeBuffer, timeBufferMemory);
     vkMapMemory(device->GetVkDevice(), timeBufferMemory, 0, sizeof(Time), 0, &mappedData);
@@ -15,6 +19,14 @@ void Scene::UpdateTime() {
     time.deltaTime = nextDeltaTime.count();
     time.totalTime += time.deltaTime;
 
+    float dayTime = glm::mod(time.totalTime, ONE_DAY);
+    float theta = dayTime * 2.0f * PI / ONE_DAY;
+    float phi = 0;
+
+    time.sunPositionX = SUN_DISTANCE * cos(theta) * cos(phi);
+    time.sunPositionY = SUN_DISTANCE * sin(theta);
+    time.sunPositionZ = SUN_DISTANCE * cos(theta) * sin(phi);
+    
     memcpy(mappedData, &time, sizeof(Time));
 }
 

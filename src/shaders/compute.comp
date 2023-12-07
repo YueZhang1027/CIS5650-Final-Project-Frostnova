@@ -1,15 +1,13 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+#define HIGHLIGHT_SUN 1
 #define WORKGROUP_SIZE 32
 
 #define PI 3.14159265
 #define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
-#define ONE_DAY 100.0f
-
-
 
 // TODO: check go through cloud?
 // Atmosphere
@@ -49,6 +47,9 @@ layout(set = 3, binding = 3) uniform sampler2D curlNoise;
 layout(set = 4, binding = 0) uniform TimeObject {
     float deltaTime;
     float totalTime;
+    float sunPositionX;
+    float sunPositionY;
+    float sunPositionZ;
 } time;
 
 // structs
@@ -218,8 +219,7 @@ vec3[] samples = vec3[6](
      vec3(-0.1, 1, -0.2)
 );
 
-void CalculateLightingSamples(Ray ray) {
-    const vec3 lightDir = normalize(SUN_LOCATION - ray.mOrigin);
+void CalculateLightingSamples(Ray ray, vec3 lightDir) {
 
     vec3 maxCompUnitVector;
     if(abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2])) {
@@ -280,13 +280,14 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 //--------------------------------------------------------
 //					Raymarching Functions
 //--------------------------------------------------------
-void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, vec3 earthCenter, 
+void RaymarchVoxelClouds(Ray ray, vec3 startPos, float start_t, float end_t, 
+        vec3 earthCenter, vec3 lightDir,   
         out float accumDensity, out float transmittance) {
     float stepSize = 0.05 * ATMOSPHERE_THICKNESS;
 
     // Lighting
-    CalculateLightingSamples(ray);
-    float cosTheta = dot(ray.mDirection, normalize(SUN_LOCATION - ray.mOrigin));
+    CalculateLightingSamples(ray, lightDir);
+    float cosTheta = dot(ray.mDirection, normalize(lightDir));
     float henyeyGreenstein = HG(cosTheta, 0.2f); // TODO: MANIPULATE
 
     accumDensity = 0.0f;
@@ -470,24 +471,6 @@ vec3 Uncharted2Tonemap(vec3 W)
 	return ((W * (A * W + C * B) + D * EE) / (W * (A * W + B) + D * F)) - EE / F;
 }
 
-vec3 GetSunPosition()
-{ 
-    float time = mod(time.totalTime, ONE_DAY);
-
-    float currInclination = time * 2 * PI/ ONE_DAY;
-    float currAzimuth = 2 * PI;
-    float theta = PI * (currInclination - 0.5);
-	float phi = 2 * PI * (currAzimuth - 0.5);
-		
-	float distance = 400000;
-    vec3 sunPosition;
-	sunPosition.x = distance * cos(phi);
-	sunPosition.y = distance * sin(phi) * sin(theta);
-	sunPosition.z = distance * sin(phi) * cos(theta);
-
-    return sunPosition;
-}
-
 vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
 { 
     //star
@@ -559,19 +542,20 @@ vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
     return result;
 }
 
-
 void main() 
 {
     // Get UV
     ivec2 dim = imageSize(sourceImage);
 
     // TODO: 1/16 of the pixels after reproject compute shader
+    //ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
 
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim; 
+    vec2 uv = vec2(pixel) / dim; 
     Ray ray = GenerateRay(uv);
 
     // Update Sun
-    vec3 sunPos = GetSunPosition();
+    vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
     vec3 sunDir = normalize(sunPos);
   
     // below horizon, return
@@ -599,9 +583,19 @@ void main()
     vec3 bgColor = sky.rgb;
 
     accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (40.0 * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
+    vec3 cloudColor = (sky.a * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance));
 
     vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
-    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+
+#ifdef HIGHLIGHT_SUN
+    //Highlight Sun for Debug
+    float angleFromSun = acos(clamp(dot(ray.mDirection, sunDir), -0.999999, 0.999999)) * 180.0 / PI;
+    if(angleFromSun < 1.5)
+    {
+        finalColor = vec4(1, 0, 0, 1);
+    }
+#endif
+
+    imageStore(targetImage, pixel, finalColor);
 }
