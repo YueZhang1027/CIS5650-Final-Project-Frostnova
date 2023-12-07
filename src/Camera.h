@@ -5,6 +5,16 @@
 #include "Device.h"
 #include "BufferUtils.h"
 
+enum Direction
+{
+    FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN
+};
+
 struct CameraBufferObject {
   glm::mat4 viewMatrix;
   glm::mat4 projectionMatrix;
@@ -20,6 +30,7 @@ struct CameraBufferObject {
 struct CameraParamBufferObject {
     float halfTanFOV;
     float aspectRatio;
+    int pixelOffset; // [0 - 16)
 };
 
 class Camera {
@@ -37,6 +48,10 @@ private:
 
     float r, theta, phi;
 
+    glm::vec3 lookAtDir;
+    glm::vec3 right;
+    glm::vec3 up;
+
 public:
     Camera(Device* device, float aspectRatio);
     ~Camera();
@@ -46,5 +61,7 @@ public:
     VkBuffer GetCameraParamBuffer() const;
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
+    void UpdatePosition(Direction dir);
     void UpdatePrevBuffer();
+    void UpdatePixelOffset();
 };

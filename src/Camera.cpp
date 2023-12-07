@@ -13,15 +13,17 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     theta = 0.0f;
     phi = 0.0f;
 
+    lookAtDir = glm::vec3(0.0f, 30.0f, 0.0f);
+    right = glm::vec3(30.0f, 0.0f, 0.0f);
+    up = glm::vec3(0.0f, 0.0f, 30.0f);
+
     glm::vec3 eye = glm::vec3(0.0f, 0.0f, 0.0f);
-    cameraBufferObject.viewMatrix = glm::lookAt(eye, glm::vec3(0.0f, 30.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    cameraBufferObject.viewMatrix = glm::lookAt(eye, eye + lookAtDir, glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
     cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);
 
     // phi, theta
-    theta = 0.0f;
-    phi = -90.0f;
 
 
     camBuffer.MapMemory(device, sizeof(CameraBufferObject));
@@ -35,6 +37,7 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     // Create a buffer for camera parameters
     cameraParamBufferObject.aspectRatio = aspectRatio;
     cameraParamBufferObject.halfTanFOV = tan(glm::radians(45.0f / 2.0f));
+    cameraParamBufferObject.pixelOffset = 0;
 
     cameraParamBuffer.MapMemory(device, sizeof(CameraParamBufferObject));
     memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
@@ -61,19 +64,62 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     float radPhi = glm::radians(phi);
 
     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), radTheta, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), radPhi, glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 300.0f, 100.0f)) 
+    glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), glm::vec3(cameraBufferObject.cameraPosition)) 
         * rotation 
         * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, r));
 
     cameraBufferObject.viewMatrix = glm::inverse(finalTransform);
-    cameraBufferObject.cameraPosition = finalTransform * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    cameraBufferObject.cameraPosition = finalTransform * glm::vec4(0.f, 0.f, 0.f, 1.0f);
 
+    lookAtDir = glm::vec3(finalTransform * glm::vec4(0.f, 0.0f, -30.f, 1.0f) - cameraBufferObject.cameraPosition);
+    right = glm::vec3(finalTransform * glm::vec4(30.f, 0.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
+    up = glm::vec3(finalTransform * glm::vec4(0.f, 30.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
+
+    memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+}
+
+void Camera::UpdatePosition(Direction dir)
+{
+    glm::vec3 vecDir;
+    switch (dir) {
+    case FORWARD:
+        if(glm::length(lookAtDir) != 0.f)
+            vecDir = glm::normalize(lookAtDir);
+        break;
+    case BACKWARD:
+        if (glm::length(lookAtDir) != 0.f)
+            vecDir = -glm::normalize(lookAtDir);
+        break;
+    case LEFT:
+        if (glm::length(right) != 0.f)
+            vecDir = glm::normalize(right);
+        break;
+    case RIGHT:
+        if (glm::length(right) != 0.f)
+            vecDir = -glm::normalize(right);
+        break;
+    case UP:
+        if (glm::length(up) != 0.f)
+            vecDir = -glm::normalize(up);
+        break;
+    case DOWN:
+        if (glm::length(up) != 0.f)
+            vecDir = glm::normalize(up);
+        break;
+    default: return;
+    } 
+    cameraBufferObject.cameraPosition += glm::vec4(30.f * vecDir, 1.0);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
 void Camera::UpdatePrevBuffer() {
     prevCameraBufferObject.CopyFrom(cameraBufferObject);
     memcpy(prevCamBuffer.mappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
+}
+
+void Camera::UpdatePixelOffset() {
+    cameraParamBufferObject.pixelOffset = (cameraParamBufferObject.pixelOffset + 1) % 16;
+	memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
 }
 
 Camera::~Camera() {

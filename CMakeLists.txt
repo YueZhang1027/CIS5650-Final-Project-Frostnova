@@ -7,6 +7,10 @@ OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
 
 find_package(Vulkan REQUIRED)
 
+include(C:\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake)
+
+find_package(OpenVDB REQUIRED)
+
 IF(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WIN32_KHR")
 ELSE(WIN32)

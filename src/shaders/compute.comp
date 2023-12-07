@@ -8,6 +8,8 @@
 #define ONE_OVER_FOURPI 0.07957747154594767
 #define E 2.718281828459
 #define DEG2RAD 0.01745f
+#define ONE_DAY 100.0f
+
 
 // TODO: check go through cloud?
 // Atmosphere
@@ -37,6 +39,7 @@ layout(set = 2, binding = 0) uniform CameraObject {
 layout(set = 2, binding = 2) uniform CameraParamObject {
     float halfTanFOV;
     float aspectRatio;
+    int pixelOffset;
 } cameraParam;
 
 layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
@@ -261,7 +264,6 @@ void SampleLight(vec3 samplePos, float stepSize, vec3 earthCenter, float cosThet
 
         float loDensity = GetBaseDensity(skewSamplePos, lightHeight);
         if (loDensity > 0.0f) {
-            // float GetDetailDensity(vec3 skewSamplePoint, float density, float height, float curlStrength)
 			float detailDensity = GetDetailDensity(skewSamplePos, loDensity, lightHeight, stepSize);
 			lightDensity += detailDensity;
 		}
@@ -574,7 +576,7 @@ void main()
 	Intersection atmosphereOuterIsect = RaySphereIntersection(ray, earthCenter, ATMOSPHERE_RADIUS_OUTER);
 
     // Ray march
-    float transmittance = 1.0f;
+    float transmittance = 0.0f;
     float accumDensity = 0.0f;
     RaymarchVoxelClouds(ray, atmosphereInnerIsect.mPoint, atmosphereInnerIsect.mTime, atmosphereOuterIsect.mTime, earthCenter, sunDir, accumDensity, transmittance);
 

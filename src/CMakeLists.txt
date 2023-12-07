@@ -1,8 +1,15 @@
+set(CMAKE_CXX_STANDARD 17)
+
 file(GLOB SOURCES 
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/shaderprogram/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shaderprogram/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ImGui/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/vdb/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vdb/*.h
+
 )
 
 file(GLOB IMAGES
@@ -11,6 +18,10 @@ file(GLOB IMAGES
     ${CMAKE_CURRENT_SOURCE_DIR}/images/*.bmp
     ${CMAKE_CURRENT_SOURCE_DIR}/images/hiResCloudShape/*.tga
     ${CMAKE_CURRENT_SOURCE_DIR}/images/lowResCloudShape/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example1/tga/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example2/tga/*.tga
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example1/*.vdb
+    ${CMAKE_CURRENT_SOURCE_DIR}/images/vdb/example2/*.vdb
 )
 
 foreach(IMAGE ${IMAGES})
@@ -54,11 +65,24 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
     # TODO: Build shaders on not windows
 endforeach()
 
-target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw)
+set_target_properties(vulkan_volumetric_cloud PROPERTIES VS_GLOBAL_VcpkgEnabled true)
+
+foreach(DEBUGLIB ${LIBRARIES_DEBUG})
+  target_link_libraries(${PROJECT_NAME} PUBLIC debug ${DEBUGLIB})
+endforeach(DEBUGLIB)
+
+foreach(RELEASELIB ${LIBRARIES_OPTIMIZED})
+  target_link_libraries(${PROJECT_NAME} PUBLIC optimized ${RELEASELIB})
+endforeach(RELEASELIB)
+
+add_definitions( -DPROJECT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_link_libraries(vulkan_volumetric_cloud ${ASSIMP_LIBRARIES} Vulkan::Vulkan glfw OpenVDB::openvdb)
 target_include_directories(vulkan_volumetric_cloud PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${GLM_INCLUDE_DIR}
   ${STB_INCLUDE_DIR}
+  ${OpenVDB_INCLUDE_DIR}
 )
 
 InternalTarget("" vulkan_volumetric_cloud)
