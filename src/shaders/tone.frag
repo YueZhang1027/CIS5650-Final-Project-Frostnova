@@ -73,7 +73,7 @@ vec4 GodRay()
 
 void main() {
     vec4 sceneCol = texture(texColor, fragTexCoord);
-    sceneCol += GodRay() * 0.09;
+    // sceneCol += GodRay() * 0.09;
 
     vec3 col = sceneCol.xyz;
     float whitepoint = 1.0;

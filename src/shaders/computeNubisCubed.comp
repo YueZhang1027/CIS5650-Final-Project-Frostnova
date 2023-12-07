@@ -12,20 +12,20 @@
 #define CLOUD_ANIMATE_SPEED 1.f
 #define CLOUD_WIND_OFFSET vec2(0.1, 0.1)
 
-#define EPSILON 0.01
+#define EPSILON 0.1
 
 // Mip Map
 #define USE_FINE_DETAIL_MIPMAP false
 #define USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE 10.0
 
 // Raymarching
-#define MAX_RAYMARCHING_DISTANCE 100.0
+#define MAX_RAYMARCHING_DISTANCE 1000.0
 #define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
-#define VOXEL_BOUND_MIN vec3(-32.0, -32.0, -4.0)
-#define VOXEL_BOUND_MAX vec3(32.0, 32.0, 4.0)
+#define VOXEL_BOUND_MIN vec3(0.0, 0.0, 0.0)
+#define VOXEL_BOUND_MAX vec3(512.0, 512.0, 64.0)
 
 // Density
-#define DENSITY_SCALE 1.0
+#define DENSITY_SCALE 0.1
 
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
@@ -49,6 +49,7 @@ layout(set = 2, binding = 2) uniform CameraParamObject {
 // R: Dimentional Profile 
 // G: Detail Type
 // B: Density Scale
+// A: SDF
 layout(set = 3, binding = 0) uniform sampler3D modelingNVDFTexture;
 
 // Field Data NVDF
@@ -206,6 +207,8 @@ VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo 
 		return density_samples;
 	}
 
+    sample_coord = vec3(1.0f) - sample_coord;
+
     modeling_data = GetVoxelCloudModelingData(sample_coord, inMipLevel);
     float dimensional_profile = modeling_data.mDimensionalProfile;
     float type = modeling_data.mDetailType;
@@ -216,9 +219,6 @@ VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo 
 
         density_samples.mFull = GetUprezzedVoxelCloudDensity(inRaymarchInfo, inSamplePosition, dimensional_profile, type, density_scale, inMipLevel, inHFDetails) 
                                     * ValueRemap(inRaymarchInfo.mDistance, 10.0, 120.0, 0.25, 1.0);
-    } else {
-        density_samples.mProfile = 0.0;
-		density_samples.mFull = 0.0;
     }
 
     return density_samples;
@@ -279,10 +279,6 @@ void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, CloudRenderin
     // float potential_energy = pow( 1.0 - (d1 / radius), 12.0);
     // float pseudo_attenuation = (1.0 - saturate(density * 5.0)); 
     // float glow_energy = potential_energy * pseudo_attenuation;
-
-    
-    
-    
 }
 
 //--------------------------------------------------------
@@ -298,20 +294,20 @@ void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
     CloudRenderingRaymarchInfo raymarch_info;
     raymarch_info.mDistance = 0.0;
 
-    float stepSize = 0.3f;
+    float stepSize = 0.5f;
 
     while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT && 
          raymarch_info.mDistance < MAX_RAYMARCHING_DISTANCE) {
          vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
-
+    
          VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, sample_position, 1.0f, false);
-
+    
          if (voxel_cloud_sample_data.mProfile > 0.0f) {
              // ioPixelData.mDensity += voxel_cloud_sample_data.mProfile;
              ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
 			 //IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info, ioPixelData, false);
 		 }
-
+    
          raymarch_info.mDistance += stepSize;
     }
 
@@ -390,15 +386,15 @@ void main() {
 
 	// Raymarch
 	RaymarchVoxelClouds(ray, ioPixelData);
-
+    // 
     // Background color
     vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
-
+    
     float accumDensity = ioPixelData.mDensity;
     float transmittance = ioPixelData.mTransmittance;
-    // accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
-
+    // // accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
+    // vec3 cloudColor = (vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
+    // 
     vec4 finalColor = vec4(mix(bgColor, vec3(1.f), accumDensity), 1.0f);
     // finalColor.a *= max(1.0 - accumDensity, 0.0);
     imageStore(targetImage, pixel, finalColor);
