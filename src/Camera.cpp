@@ -10,8 +10,8 @@
 
 Camera::Camera(Device* device, float aspectRatio) : device(device) {
     r = 10.0f;
-    theta = 0.0f;
-    phi = 0.0f;
+    theta = 45.0f;
+    phi = 75.0f;
 
     lookAtDir = glm::vec3(0.0f, 30.0f, 0.0f);
     right = glm::vec3(30.0f, 0.0f, 0.0f);
@@ -24,11 +24,6 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);
 
     // phi, theta
-
-    glm::vec3 toTarget = glm::normalize(lookAtDir);
-    glm::vec3 projected = glm::normalize(glm::vec3(toTarget.x, 0, toTarget.z));
-    pitch = std::acos(glm::dot(toTarget, projected));
-    yaw = std::atan2(projected.x, projected.z);
 
     camBuffer.MapMemory(device, sizeof(CameraBufferObject));
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
@@ -45,6 +40,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
 
     cameraParamBuffer.MapMemory(device, sizeof(CameraParamBufferObject));
     memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
+
+    UpdateOrbit(0, 0, 0);
 }
 
 VkBuffer Camera::GetPrevBuffer() const {
@@ -73,6 +70,7 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
         * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, r));
 
     cameraBufferObject.viewMatrix = glm::inverse(finalTransform);
+    std::cout << cameraBufferObject.cameraPosition.x << " " << cameraBufferObject.cameraPosition.y << " " << cameraBufferObject.cameraPosition.z << std::endl;
 
     lookAtDir = glm::vec3(finalTransform * glm::vec4(0.f, 0.0f, -30.f, 1.0f) - cameraBufferObject.cameraPosition);
     right = glm::vec3(finalTransform * glm::vec4(30.f, 0.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
@@ -113,6 +111,9 @@ void Camera::UpdatePosition(Direction dir)
     } 
     cameraBufferObject.cameraPosition += glm::vec4(5.f * vecDir, 1.0);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+
+    std::cout << cameraBufferObject.cameraPosition.x << " " << cameraBufferObject.cameraPosition.y << " " << cameraBufferObject.cameraPosition.z << std::endl;
+    std::cout << theta << " " << phi << r << std::endl;
 }
 
 void Camera::UpdateAngle(Direction dir)
