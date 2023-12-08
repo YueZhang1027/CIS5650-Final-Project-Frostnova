@@ -70,6 +70,7 @@ struct VoxelCloudModelingData {
     float mDimensionalProfile;
     float mDetailType;
     float mDensityScale;
+    float mSdf;
 };
 
 struct VoxelCloudDensitySamples {
@@ -147,25 +148,26 @@ vec3 GetSampleCoord(vec3 inSamplePosition) {
 //--------------------------------------------------------
 VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float inMipLevel) {
     VoxelCloudModelingData modeling_data;
-    vec3 Modeling_NVDF = texture(modelingNVDFTexture, inSamplePosition).rgb;
+    vec4 Modeling_NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
     modeling_data.mDimensionalProfile = Modeling_NVDF.r;
     modeling_data.mDetailType = Modeling_NVDF.g;
     modeling_data.mDensityScale = Modeling_NVDF.b;
+    modeling_data.mSdf = ValueRemap(Modeling_NVDF.a, 0.0f, 1.0f, -256.0f, 4096.0f);
 
     return modeling_data;
 }
 
 // Detail density sample
-float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSamplePosition, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
+float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSampleCoord, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
 {
     // Step1-Apply wind offset
-    inSamplePosition -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED;
+    // inSamplePosition -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED;
 
     // Step2-Sample noise
     float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
     // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 
-    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePosition);
+    vec4 noise = texture(cloudDetailNoiseTexture, inSampleCoord);
 
     // Step3-Define Detail Erosion
     // wispy
@@ -206,13 +208,11 @@ float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, ve
 }
 
 
-VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 sampleCoord, float inMipLevel, bool inHFDetails) {
-    VoxelCloudModelingData modeling_data;
+VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data, vec3 sampleCoord, float inMipLevel, bool inHFDetails) {
     VoxelCloudDensitySamples density_samples;
     density_samples.mProfile = 0.0;
 	density_samples.mFull = 0.0;
 
-    modeling_data = GetVoxelCloudModelingData(sampleCoord, inMipLevel);
     float dimensional_profile = modeling_data.mDimensionalProfile;
     float type = modeling_data.mDetailType;
     float density_scale = modeling_data.mDensityScale;
@@ -296,34 +296,34 @@ float GetVoxelCloudDistance(vec3 inSamplePosition) {
 void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
     CloudRenderingRaymarchInfo raymarch_info;
     raymarch_info.mDistance = 0.0;
-    raymarch_info.mStepSize = 0.5f;
 
     while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT && 
          raymarch_info.mDistance < MAX_RAYMARCHING_DISTANCE) {
          vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
-
-    //     // Adaptive Step Size
-    //     float adaptive_step_size = max(1.0, max(sqrt(raymarch_info.mDistance), EPSILON) * 0.08);
-    // 
-    //     raymarch_info.mCloudDistance = GetVoxelCloudDistance(sample_position);
-    // 
-    //     // Max SDF and Step Size
-    //     raymarch_info.mStepSize = max(raymarch_info.mCloudDistance, adaptive_step_size);
-    // 
-    //     // Jitter
-
          vec3 sample_coord = GetSampleCoord(sample_position);
-         if (sample_coord.x >= 0.0 && sample_coord.x <= 1.0 && sample_coord.y >= 0.0 && sample_coord.y <= 1.0 && sample_coord.z >= 0.0 && sample_coord.z <= 1.0) {
-		     VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, sample_coord, 1.0f, false);
-    
-             if (voxel_cloud_sample_data.mProfile > 0.0f) {
-                 ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
-			     //IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info, ioPixelData, false);
-		     }
-	     }
 
-         
-    
+         if (sample_coord.x >= 0.0 && sample_coord.x <= 1.0 && sample_coord.y >= 0.0 && sample_coord.y <= 1.0 && sample_coord.z >= 0.0 && sample_coord.z <= 1.0) { 
+             VoxelCloudModelingData modeling_data = GetVoxelCloudModelingData(sample_coord, 0.0f);
+             
+             // Adaptive Step Size
+             float adaptive_step_size = max(1.0, max(sqrt(raymarch_info.mDistance), EPSILON) * 0.08);
+
+             raymarch_info.mCloudDistance = modeling_data.mSdf; // raymarch_info.mCloudDistance = GetVoxelCloudDistance(sample_position);
+
+             // Max SDF and Step Size
+             raymarch_info.mStepSize = max(raymarch_info.mCloudDistance, adaptive_step_size);
+     
+             // Jitter
+
+             if (raymarch_info.mCloudDistance < 0.0) {
+		         VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, modeling_data, sample_coord, 1.0f, false);
+                 
+                 if (voxel_cloud_sample_data.mProfile > 0.0f) {
+                     ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
+			         //IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info, ioPixelData, false);
+		         }
+             }
+         }
          raymarch_info.mDistance += raymarch_info.mStepSize;
     }
 }
