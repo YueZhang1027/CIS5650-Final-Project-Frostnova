@@ -9,7 +9,7 @@
 // #define SUN_LOCATION vec3(0.0, 0.0, 0.0)
 
 // Cloud animation
-#define CLOUD_ANIMATE_SPEED 1.f
+#define CLOUD_ANIMATE_SPEED 10.f
 #define CLOUD_WIND_OFFSET vec2(0.1, 0.1)
 
 #define EPSILON 0.1
@@ -25,7 +25,7 @@
 #define VOXEL_BOUND_MAX vec3(1024.0, 1024.0, 128.0)
 
 // Density
-#define DENSITY_SCALE 0.1
+#define DENSITY_SCALE 0.01
 
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
@@ -87,6 +87,7 @@ struct CloudRenderingRaymarchInfo {
 struct CloudRenderingPixelData {
     float mDensity;
     float mTransmittance;
+    vec3 mColor;
 };
 
 struct Ray {
@@ -158,16 +159,16 @@ VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float in
 }
 
 // Detail density sample
-float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSampleCoord, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
+float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSamplePos, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
 {
     // Step1-Apply wind offset
-    // inSamplePosition -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED;
+    inSamplePos -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED * time.totalTime;
 
     // Step2-Sample noise
     float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
     // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 
-    vec4 noise = texture(cloudDetailNoiseTexture, inSampleCoord);
+    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * 0.01); // TODO: check freq
 
     // Step3-Define Detail Erosion
     // wispy
@@ -208,7 +209,7 @@ float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, ve
 }
 
 
-VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data, vec3 sampleCoord, float inMipLevel, bool inHFDetails) {
+VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data, vec3 samplePosition, float inMipLevel, bool inHFDetails) {
     VoxelCloudDensitySamples density_samples;
     density_samples.mProfile = 0.0;
 	density_samples.mFull = 0.0;
@@ -218,9 +219,9 @@ VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo 
     float density_scale = modeling_data.mDensityScale;
 
     if (dimensional_profile > 0.0) {
-        density_samples.mProfile = dimensional_profile * DENSITY_SCALE;
+        density_samples.mProfile = dimensional_profile * density_scale;
 
-        density_samples.mFull = GetUprezzedVoxelCloudDensity(inRaymarchInfo, sampleCoord, dimensional_profile, type, density_scale, inMipLevel, inHFDetails) 
+        density_samples.mFull = GetUprezzedVoxelCloudDensity(inRaymarchInfo, samplePosition, dimensional_profile, type, density_scale, inMipLevel, inHFDetails) // TODO: check profile
                                     * ValueRemap(inRaymarchInfo.mDistance, 10.0, 120.0, 0.25, 1.0);
     }
 
@@ -260,6 +261,23 @@ float HG(float cos_angle, float g) {
 //      return out_scatter;
 // }
 
+// vec3 CalculateLight(float density, float density_to_sun, float cos_angle, float percent_height, float bluenoise, float dist_along_ray {
+//     float attenuation_prob = Attenuation(density_to_sun, cos_angle);
+//     float ambient_out_scatter = OutScatterAmbient(density, percent_height);
+
+//     // Can be calculated once for each march but gave no/tiny per improvements.
+//     const float sun_highlight = InOutScatter(cos_angle);
+//     float attenuation = attenuation_prob * sun_highlight * ambient_out_scatter;
+
+//     // Ambient min (dist_along_ray used so that far away regions (huge steps) arent calculated (wrongly))
+//     attenuation = max(density * cloud_ambient_minimum * (1 - pow(clamp(dist_along_ray / 4000, 0.0f, 1.0f), 2)), attenuation);
+
+//     //combat banding a bit more
+//     attenuation += bluenoise * 0.003;
+//     vec3 ret_color = attenuation * sun_color;
+//     return ret_color;
+//  }
+
 void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, float cloud_distance, CloudRenderingRaymarchInfo raymarch_info, inout CloudRenderingPixelData ioPixelData, bool inHFDetails) {
     ioPixelData.mDensity += sampleData.mFull;
     float ms_volume = sampleData.mProfile;
@@ -295,7 +313,11 @@ void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
     CloudRenderingRaymarchInfo raymarch_info;
     raymarch_info.mDistance = 0.0;
 
-    while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT && 
+    float cosTheta = dot(ray.mDirection, normalize(vec3(-1, -1, 0.0f)));
+    float henyeyGreenstein = HG(cosTheta, 0.2f);
+    float absorptionCoefficient = 0.5f;
+
+    while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT &&
          raymarch_info.mDistance < MAX_RAYMARCHING_DISTANCE) {
          vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
          vec3 sample_coord = GetSampleCoord(sample_position);
@@ -314,11 +336,26 @@ void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
              // Jitter
 
              if (raymarch_info.mCloudDistance < 0.0) {
-		         VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, modeling_data, sample_coord, 1.0f, true); // sample_position?
+		         VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, modeling_data, sample_position, 1.0f, true); // sample_position?
                  
                  if (voxel_cloud_sample_data.mProfile > 0.0f) {
-                     ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
 			         // IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info.mCloudDistance, raymarch_info, ioPixelData, false);
+
+                     // ioPixelData.mTransmittance *= exp(-absorptionCoefficient * voxel_cloud_sample_data.mFull * raymarch_info.mStepSize);
+
+                     float beersLaw = exp(-voxel_cloud_sample_data.mFull * raymarch_info.mStepSize);
+                     float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * voxel_cloud_sample_data.mFull * raymarch_info.mStepSize));
+                     beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
+                     // 
+                     // float inScatter = 0.1 + pow(voxel_cloud_sample_data.mProfile, ValueRemap(0.5, 0.3, 0.85, 0.5, 2.0));
+                     // 
+                     ioPixelData.mTransmittance = mix(ioPixelData.mTransmittance, henyeyGreenstein * beersLaw, (1.0f - ioPixelData.mDensity));
+
+                     ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
+                     if (ioPixelData.mDensity > 1.0f) {
+                        ioPixelData.mDensity = 1.0f;
+                        break;
+                     }
 		         }
              }
          }
@@ -366,19 +403,20 @@ void main() {
     CloudRenderingPixelData ioPixelData;
     ioPixelData.mDensity = 0.0;
     ioPixelData.mTransmittance = 1.0;
+    ioPixelData.mColor = vec3(0.0);
 
 	// Raymarch
 	RaymarchVoxelClouds(ray, ioPixelData);
-    // 
+     
     // Background color
     vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
     
     float accumDensity = ioPixelData.mDensity;
     float transmittance = ioPixelData.mTransmittance;
     // accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
+    vec3 cloudColor = (10.f * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
     
-    vec4 finalColor = vec4(mix(bgColor, vec3(1.f), accumDensity), 1.0f);
+    vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
     imageStore(targetImage, pixel, finalColor);
 }
