@@ -258,6 +258,9 @@ void Renderer::CreateDescriptors() {
     // Storage image - cur, prev
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
+
+    // Storage image - Light Grid
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, lightGridTexture, Descriptor::lightGridDescriptorSet);
     
     // Image - frame
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
@@ -280,6 +283,7 @@ void Renderer::CreatePipelines() {
     reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
     computeShader = new ComputeShader(device, swapChain, &renderPass);
     computeNubisCubedShader = new ComputeNubisCubedShader(device, swapChain, &renderPass);
+    computeLightGridShader = new ComputeLightGridShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
@@ -302,6 +306,9 @@ void Renderer::CreateFrameResources() {
     modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/modeling_data", glm::ivec3(512, 512, 64));
     // fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
     cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
+
+    // Light grid 
+    lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(512, 512, 64));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -436,6 +443,10 @@ void Renderer::RecordComputeCommandBuffer() {
         //     static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
         //     static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
         //     1);
+
+        // Light Grid Compute Shader
+        computeLightGridShader->BindShaderProgram(computeCommandBuffers[i]);
+        vkCmdDispatch(computeCommandBuffers[i], 512, 512, 64);
 
         computeNubisCubedShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
@@ -728,6 +739,8 @@ Renderer::~Renderer() {
     delete computeShader;
     computeNubisCubedShader->CleanUp();
     delete computeNubisCubedShader;
+    computeLightGridShader->CleanUp();
+    delete computeLightGridShader;
 
     vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
     DestroyFrameResources();
