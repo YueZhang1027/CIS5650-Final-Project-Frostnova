@@ -445,12 +445,12 @@ void Renderer::RecordComputeCommandBuffer() {
         //     1);
 
         // Light Grid Compute Shader
-        const glm::ivec3 lightVoxelDims(512, 512, 64);
+        const glm::ivec3 lightVoxelDims(256, 256, 32);
         computeLightGridShader->BindShaderProgram(computeCommandBuffers[i]);
         vkCmdDispatch(computeCommandBuffers[i], 
             static_cast<uint32_t>((lightVoxelDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
 	 	    static_cast<uint32_t>((lightVoxelDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-	 	    static_cast<uint32_t>((lightVoxelDims.z + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE));
+	 	    static_cast<uint32_t>((lightVoxelDims.z)));
 
 
         computeNubisCubedShader->BindShaderProgram(computeCommandBuffers[i]);
