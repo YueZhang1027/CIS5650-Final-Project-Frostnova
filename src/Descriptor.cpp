@@ -119,15 +119,15 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logic
     modelingNVDFLayoutBinding.pImmutableSamplers = nullptr;
     modelingNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayoutBinding fieldNVDFLayoutBinding = {};
-    fieldNVDFLayoutBinding.binding = 1;
-    fieldNVDFLayoutBinding.descriptorCount = 1;
-    fieldNVDFLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    fieldNVDFLayoutBinding.pImmutableSamplers = nullptr;
-    fieldNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    // VkDescriptorSetLayoutBinding fieldNVDFLayoutBinding = {};
+    // fieldNVDFLayoutBinding.binding = 1;
+    // fieldNVDFLayoutBinding.descriptorCount = 1;
+    // fieldNVDFLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    // fieldNVDFLayoutBinding.pImmutableSamplers = nullptr;
+    // fieldNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkDescriptorSetLayoutBinding cloudDetailNoiseLayoutBinding = {};
-    cloudDetailNoiseLayoutBinding.binding = 2;
+    cloudDetailNoiseLayoutBinding.binding = 1;
     cloudDetailNoiseLayoutBinding.descriptorCount = 1;
     cloudDetailNoiseLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     cloudDetailNoiseLayoutBinding.pImmutableSamplers = nullptr;
@@ -135,7 +135,7 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logic
 
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
         modelingNVDFLayoutBinding, // modelingNVDF
-        fieldNVDFLayoutBinding, // fieldNVDF
+        // fieldNVDFLayoutBinding, // fieldNVDF
         cloudDetailNoiseLayoutBinding, // cloudDetailNoise
     };
 
@@ -232,7 +232,7 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, 
 
         // Compute nubis cubed images: modelingNVDF, fieldNVDF, cloudDetailNoise
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
     };
 
     VkDescriptorPoolCreateInfo poolInfo = {};
@@ -468,7 +468,7 @@ void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice,
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
-void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex) {
+void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, Texture* modelingNVDFTex, Texture* cloudDetailNoiseTex) {
     // Describe the desciptor set
     VkDescriptorSetLayout layouts[] = { computeNubisCubedImagesDescriptorSetLayout };
     VkDescriptorSetAllocateInfo allocInfo = {};
@@ -488,17 +488,17 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     modelingNVDFImageInfo.imageView = modelingNVDFTex->imageView;
     modelingNVDFImageInfo.sampler = modelingNVDFTex->sampler;
 
-    VkDescriptorImageInfo fieldNVDFImageInfo = {};
-    fieldNVDFImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    fieldNVDFImageInfo.imageView = fieldNVDFTex->imageView;
-    fieldNVDFImageInfo.sampler = fieldNVDFTex->sampler;
+    // VkDescriptorImageInfo fieldNVDFImageInfo = {};
+    // fieldNVDFImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // fieldNVDFImageInfo.imageView = fieldNVDFTex->imageView;
+    // fieldNVDFImageInfo.sampler = fieldNVDFTex->sampler;
 
     VkDescriptorImageInfo cloudDetailNoiseImageInfo = {};
     cloudDetailNoiseImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     cloudDetailNoiseImageInfo.imageView = cloudDetailNoiseTex->imageView;
     cloudDetailNoiseImageInfo.sampler = cloudDetailNoiseTex->sampler;
 
-    std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = computeNubisCubedImagesDescriptorSet;
     descriptorWrites[0].dstBinding = 0;
@@ -509,6 +509,16 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     descriptorWrites[0].pImageInfo = &modelingNVDFImageInfo;
     descriptorWrites[0].pTexelBufferView = nullptr;
 
+    // descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    // descriptorWrites[1].dstSet = computeNubisCubedImagesDescriptorSet;
+    // descriptorWrites[1].dstBinding = 1;
+    // descriptorWrites[1].dstArrayElement = 0;
+    // descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    // descriptorWrites[1].descriptorCount = 1;
+    // descriptorWrites[1].pBufferInfo = nullptr;
+    // descriptorWrites[1].pImageInfo = &fieldNVDFImageInfo;
+    // descriptorWrites[1].pTexelBufferView = nullptr;
+
     descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[1].dstSet = computeNubisCubedImagesDescriptorSet;
     descriptorWrites[1].dstBinding = 1;
@@ -516,18 +526,8 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pBufferInfo = nullptr;
-    descriptorWrites[1].pImageInfo = &fieldNVDFImageInfo;
+    descriptorWrites[1].pImageInfo = &cloudDetailNoiseImageInfo;
     descriptorWrites[1].pTexelBufferView = nullptr;
-
-    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[2].dstSet = computeNubisCubedImagesDescriptorSet;
-    descriptorWrites[2].dstBinding = 2;
-    descriptorWrites[2].dstArrayElement = 0;
-    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[2].descriptorCount = 1;
-    descriptorWrites[2].pBufferInfo = nullptr;
-    descriptorWrites[2].pImageInfo = &cloudDetailNoiseImageInfo;
-    descriptorWrites[2].pTexelBufferView = nullptr;
 
     // Update descriptor sets
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);

@@ -269,7 +269,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
 
     // Image - Compute Nubis Cubed shader images
-    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, fieldDataTexture, cloudDetailNoiseTexture);
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, cloudDetailNoiseTexture);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
@@ -304,7 +304,7 @@ void Renderer::CreateFrameResources() {
 
     // modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
     modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/modeling_data", glm::ivec3(512, 512, 64));
-    fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
+    // fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
     cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
 
     // Light grid 
@@ -384,6 +384,8 @@ void Renderer::DestroyFrameResources() {
     delete curlNoiseTexture;
     modelingDataTexture->CleanUp(logicalDevice);
     delete modelingDataTexture;
+    cloudDetailNoiseTexture->CleanUp(logicalDevice);
+	delete cloudDetailNoiseTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
