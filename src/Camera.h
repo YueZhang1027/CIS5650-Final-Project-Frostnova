@@ -54,6 +54,9 @@ private:
     glm::vec3 right;
     glm::vec3 up;
 
+    float pitch;
+    float yaw;
+
 public:
     Camera(Device* device, float aspectRatio);
     ~Camera();
@@ -64,6 +67,7 @@ public:
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePosition(Direction dir);
+    void UpdateAngle(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
 };

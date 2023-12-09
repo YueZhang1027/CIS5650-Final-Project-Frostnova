@@ -42,7 +42,13 @@ namespace {
                 break;
             case GLFW_KEY_2:
                 camera->UpdatePosition(Direction::DOWN);
-                break;           
+                break;
+            case GLFW_KEY_LEFT:
+                camera->UpdateAngle(Direction::LEFT);
+                break;
+            case GLFW_KEY_RIGHT:
+                camera->UpdateAngle(Direction::RIGHT);
+                break;
         }
     }
 

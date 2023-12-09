@@ -15,7 +15,6 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     radius = 450;
     target = glm::vec3(0.f, 0.f, 30.f);
 
-
     lookAtDir = glm::vec3(0.0f, 30.f, 0.0f);
     right = glm::vec3(30.0f, 0.0f, 0.0f);
     up = glm::vec3(0.0f, 0.0f, 30.0f);
@@ -27,7 +26,6 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     cameraBufferObject.cameraPosition = glm::vec4(cameraBufferObject.viewMatrix[3][0], cameraBufferObject.viewMatrix[3][1], cameraBufferObject.viewMatrix[3][2], 1.0f);
 
     // phi, theta
-
 
     camBuffer.MapMemory(device, sizeof(CameraBufferObject));
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
@@ -106,13 +104,12 @@ void Camera::UpdatePosition(Direction dir)
         break;
     default: return;
     } 
-    cameraBufferObject.cameraPosition += glm::vec4(30.f * vecDir, 1.0);
+    cameraBufferObject.cameraPosition += glm::vec4(5.f * vecDir, 1.0);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
 void Camera::UpdateAngle(Direction dir)
 {
-
 }
 
 void Camera::UpdatePrevBuffer() {

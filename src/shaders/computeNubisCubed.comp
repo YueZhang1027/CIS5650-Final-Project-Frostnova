@@ -358,7 +358,6 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     ioPixelData.mTransmittance += sampleData.mFull * light_energy * ioPixelData.mAlpha; 
     ioPixelData.mCloudColor += sampleData.mFull * cloudColor * ioPixelData.mAlpha;
     ioPixelData.mAlpha *= exp(-sampleData.mFull * 1.0);  
-
 }
 
 
