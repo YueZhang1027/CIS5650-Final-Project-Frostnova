@@ -3,40 +3,9 @@
 
 #define WORKGROUP_SIZE 32
 
-#define PI 3.14159265
-#define ONE_OVER_FOURPI 0.07957747154594767
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 
-#define EPSILON 0.1
-
-// Mip Map
-#define USE_FINE_DETAIL_MIPMAP false
-#define USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE 10.0
-
-// Raymarching
-#define MAX_RAYMARCHING_DISTANCE 1000.0
-#define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
-#define VOXEL_BOUND_MIN vec3(0.0, 0.0, 0.0)
-#define VOXEL_BOUND_MAX vec3(512.0, 512.0, 64.0)
-
-// Density
-#define DENSITY_SCALE 0.1
-
-layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-
-layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
-layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
-
-layout(set = 2, binding = 0) uniform CameraObject {
-    mat4 view;
-    mat4 proj;
-    vec4 cameraPosition;
-} camera;
-
-layout(set = 2, binding = 2) uniform CameraParamObject {
-    float halfTanFOV;
-    float aspectRatio;
-    int pixelOffset;
-} cameraParam;
+layout (set = 0, binding = 0, rgba32f) uniform image3D targetImage;
 
 // Modeling NVDF's
 // 512 x 512 x 64
@@ -44,254 +13,66 @@ layout(set = 2, binding = 2) uniform CameraParamObject {
 // G: Detail Type
 // B: Density Scale
 // A: SDF
-layout(set = 3, binding = 0) uniform sampler3D modelingNVDFTexture;
+layout(set = 1, binding = 0) uniform sampler3D modelingNVDFTexture;
 
-// Field Data NVDF
-// 512 x 512 x 64
-layout(set = 3, binding = 1) uniform sampler3D fieldNVDFTexture;
+layout(set = 1, binding = 1) uniform sampler3D fieldNVDFTexture;
+layout(set = 1, binding = 2) uniform sampler3D cloudDetailNoiseTexture;
 
-// Detail Noise
-// 128 * 128 * 128
-layout(set = 3, binding = 2) uniform sampler3D cloudDetailNoiseTexture;
 
-layout(set = 4, binding = 0) uniform TimeObject {
+layout(set = 2, binding = 0) uniform TimeObject {
     float deltaTime;
     float totalTime;
+    float sunPositionX;
+    float sunPositionY;
+    float sunPositionZ;
 } time;
 
-// structs
-struct VoxelCloudModelingData {
-    float mDimensionalProfile;
-    float mDetailType;
-    float mDensityScale;
-    float mSdf;
-};
 
-struct VoxelCloudDensitySamples {
-    float mProfile; // profile
-    float mFull;    // detail
-};
+float GetVoxelCloudProfileDensity(vec3 coord) {
 
-struct CloudRenderingRaymarchInfo {
-    float mDistance;       // ray marching distance
-    float mCloudDistance;  // distance to cloud
-    float mStepSize;       // step size
-};
+    vec3 inSamplePosition = vec3(coord.x/256, coord.y/256, coord.z/32);
 
-struct CloudRenderingPixelData {
-    float mDensity;
-    float mTransmittance;
-};
+    vec4 NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
+    float dimensionalProfile = NVDF.r;
+    float densityScale = NVDF.b;
 
-struct Ray {
-	vec3 mOrigin;
-	vec3 mDirection;
-};
+    if (dimensionalProfile > 0.0) {
+        return dimensionalProfile * densityScale;
+    }
 
-struct Intersection {
-    vec3 mNormal;
-    vec3 mPoint;
-    float mTime;
-};
-
-
-//--------------------------------------------------------
-//					ATMOSPHERE FUNCTIONS
-//--------------------------------------------------------
-
-
-//--------------------------------------------------------
-//					TOOL BOX FUNCTIONS
-//--------------------------------------------------------
-float ValueRemap(float inValue, float inOldMin, float inOldMax, float inMin, float inMax) {
-    float old_min_max_range = (inOldMax - inOldMin);
-    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0, 1);
-    return inMin + (clamped_normalized * (inMax - inMin));
+    return 0;
 }
 
-
-float ValueErosion(float inValue, float inOldMin) {
-    // derrived from Set-Range, this function uses the oldMin to erode or inflate the input value. - inValues inflate while + inValues erode
-    float old_min_max_range = (1.0 - inOldMin);
-    float clamped_normalized = clamp((inValue - inOldMin) / old_min_max_range, 0, 1);
-    return (clamped_normalized);
-}
-
-float GetFractionFromValue(float inValue, float inMin, float inMax) {
-    return clamp((inValue - inMin) / (inMax - inMin), 0, 1);
-}
-
-float GetVoxelCloudMipLevel(CloudRenderingRaymarchInfo inRaymarchInfo, float inMipLevel) {
-    // Apply Distance based Mip Offset
-    float mipmap_level = USE_FINE_DETAIL_MIPMAP ? inMipLevel : log2(1.0 + abs(inRaymarchInfo.mDistance * USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE)) + inMipLevel;
-    return mipmap_level;
-}
-
-vec3 GetSampleCoord(vec3 inSamplePosition) {
-    vec3 sample_coord = (inSamplePosition - VOXEL_BOUND_MIN) / (VOXEL_BOUND_MAX - VOXEL_BOUND_MIN);
-    if (sample_coord.x < 0.0 || sample_coord.x > 1.0 || sample_coord.y < 0.0 || sample_coord.y > 1.0 || sample_coord.z < 0.0 || sample_coord.z > 1.0) {
-		return sample_coord;
-	}
-
-    sample_coord = vec3(1.0f) - sample_coord;
-    return sample_coord;
-}
-
-//--------------------------------------------------------
-//					Density Sample Functions
-//--------------------------------------------------------
-VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float inMipLevel) {
-    VoxelCloudModelingData modeling_data;
-    vec4 Modeling_NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
-    modeling_data.mDimensionalProfile = Modeling_NVDF.r;
-    modeling_data.mDetailType = Modeling_NVDF.g;
-    modeling_data.mDensityScale = Modeling_NVDF.b;
-    modeling_data.mSdf = ValueRemap(Modeling_NVDF.a, 0.0f, 1.0f, -256.0f, 4096.0f);
-
-    return modeling_data;
-}
-
-// Detail density sample
-float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSampleCoord, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
+bool InBoundary(vec3 coord)
 {
-    // Step1-Apply wind offset
-    // inSamplePosition -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED;
-
-    // Step2-Sample noise
-    float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
-    // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
-
-    vec4 noise = texture(cloudDetailNoiseTexture, inSampleCoord);
-
-    // Step3-Define Detail Erosion
-    // wispy
-    float wispy_noise = mix(noise.r, noise.g, inDimensionalProfile);
-
-    // billowy
-    float billowy_type_gradient = pow(inDimensionalProfile, 0.25);
-    float billowy_noise = mix(noise.b * 0.3, noise.a * 0.3, billowy_type_gradient);
-
-    // High Noise composite - blend to wispy as the density scale decreases.
-    float noise_composite = mix(wispy_noise, billowy_noise, inType);
-
-    // high frequency detail?
-    if (inHFDetails)
-    {
-        float hhf_wisps = 1.0 - pow(abs(abs(noise.g * 2.0 - 1.0) * 2.0 - 1.0), 4.0);
-        float hhf_billows = pow(abs(abs(noise.a * 2.0 - 1.0) * 2.0 - 1.0), 2.0);
-        float hhf_noise = clamp(mix(hhf_wisps, hhf_billows, inType), 0, 1);
-        float hhf_noise_distance_range_blender = ValueRemap(inRaymarchInfo.mDistance, 50.0, 150.0, 0.9, 1.0); // unit: meter
-        noise_composite = mix(hhf_noise, noise_composite, hhf_noise_distance_range_blender);
-    }
-
-    // composite noise
-    float uprezzed_density = ValueErosion(inDimensionalProfile, noise_composite);
-    float powered_density_scale = pow(clamp(inDensityScale, 0, 1), 4.0);
-    uprezzed_density *= powered_density_scale;
-
-    // make low frequency region more sharp
-    uprezzed_density = pow(uprezzed_density, mix(0.3, 0.6, max(EPSILON, powered_density_scale)));
-
-    if (inHFDetails)
-    {
-        float distance_range_blender = GetFractionFromValue(inRaymarchInfo.mDistance, 50.0, 150.0);
-        uprezzed_density = pow(uprezzed_density, mix(0.5, 1.0, distance_range_blender)) * mix(0.666, 1.0, distance_range_blender);
-    }
-
-    return uprezzed_density;
+    return coord.x >= 0 && coord.x < 256
+        && coord.y >= 0 && coord.y < 256
+        && coord.z >= 0 && coord.z < 32;
 }
-
-
-VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data, vec3 sampleCoord, float inMipLevel, bool inHFDetails) {
-    VoxelCloudDensitySamples density_samples;
-    density_samples.mProfile = 0.0;
-	density_samples.mFull = 0.0;
-
-    float dimensional_profile = modeling_data.mDimensionalProfile;
-    float type = modeling_data.mDetailType;
-    float density_scale = modeling_data.mDensityScale;
-
-    if (dimensional_profile > 0.0) {
-        density_samples.mProfile = dimensional_profile * DENSITY_SCALE;
-
-        density_samples.mFull = GetUprezzedVoxelCloudDensity(inRaymarchInfo, sampleCoord, dimensional_profile, type, density_scale, inMipLevel, inHFDetails) 
-                                    * ValueRemap(inRaymarchInfo.mDistance, 10.0, 120.0, 0.25, 1.0);
-    }
-
-    return density_samples;
-}
-
-
-
-//--------------------------------------------------------
-//					Raymarching Functions
-//--------------------------------------------------------
-float GetVoxelCloudDistance(vec3 inSamplePosition) {
-    vec3 sampled_color = texture(fieldNVDFTexture, inSamplePosition).rgb;
-    float result = dot(sampled_color, vec3(1.0, 0.03529415, 0.00069204));
-    return ValueRemap(result, 0, 1, -256, 4096);
-}
-
-void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
-    CloudRenderingRaymarchInfo raymarch_info;
-    raymarch_info.mDistance = 0.0;
-
-    while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT && 
-         raymarch_info.mDistance < MAX_RAYMARCHING_DISTANCE) {
-         vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
-         vec3 sample_coord = GetSampleCoord(sample_position);
-
-         if (sample_coord.x >= 0.0 && sample_coord.x <= 1.0 && sample_coord.y >= 0.0 && sample_coord.y <= 1.0 && sample_coord.z >= 0.0 && sample_coord.z <= 1.0) { 
-             VoxelCloudModelingData modeling_data = GetVoxelCloudModelingData(sample_coord, 0.0f);
-             
-             // Adaptive Step Size
-             float adaptive_step_size = max(1.0, max(sqrt(raymarch_info.mDistance), EPSILON) * 0.08);
-
-             raymarch_info.mCloudDistance = modeling_data.mSdf; // raymarch_info.mCloudDistance = GetVoxelCloudDistance(sample_position);
-
-             // Max SDF and Step Size
-             raymarch_info.mStepSize = max(raymarch_info.mCloudDistance, adaptive_step_size);
-     
-             // Jitter
-
-             if (raymarch_info.mCloudDistance < 0.0) {
-		         VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, modeling_data, sample_coord, 1.0f, false);
-                 
-                 if (voxel_cloud_sample_data.mProfile > 0.0f) {
-                     ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
-			         //IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info, ioPixelData, false);
-		         }
-             }
-         }
-         raymarch_info.mDistance += raymarch_info.mStepSize;
-    }
-}
-
-Ray GenerateRay(vec2 uv) {
-    Ray ray;
-
-    vec3 camLook =   normalize(vec3(camera.view[0][2], camera.view[1][2], camera.view[2][2]));
-    vec3 camRight =  normalize(vec3(camera.view[0][0], camera.view[1][0], camera.view[2][0]));
-    vec3 camUp =     normalize(vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]));
-
-    vec2 screenPoint = uv * 2.0 - 1.0;
-
-    vec3 cameraPos = camera.cameraPosition.xyz;
-    vec3 refPoint = cameraPos - camLook;
-    vec3 p = refPoint 
-             + cameraParam.aspectRatio * screenPoint.x * cameraParam.halfTanFOV * camRight 
-             - screenPoint.y * cameraParam.halfTanFOV * camUp;
-
-    ray.mOrigin = cameraPos;
-    ray.mDirection = normalize(p - cameraPos);
-
-    return ray;
-}
-
-//--------------------------------------------------------
-//					Main Functions
-//--------------------------------------------------------
 
 void main() {
-   
+   ivec3 coord = ivec3(gl_GlobalInvocationID.xyz);
+
+    // Update Sun
+    vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
+    vec3 sunDir = normalize(sunPos);
+
+    float density = GetVoxelCloudProfileDensity(coord);
+
+    if(density <= 0)
+    {
+        imageStore(targetImage, coord, vec4(0, 0, 0, 0));
+		return;
+    }
+
+    vec3 nextCoord = coord + sunDir;
+
+    while(InBoundary(nextCoord))
+    {
+       density += GetVoxelCloudProfileDensity(nextCoord);
+       nextCoord += sunDir;
+    }
+     
+    vec4 finalColor = vec4(density, 0, 0, 0);
+    imageStore(targetImage, coord, finalColor);
 }
