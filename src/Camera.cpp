@@ -19,6 +19,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     right = glm::vec3(30.0f, 0.0f, 0.0f);
     up = glm::vec3(0.0f, 0.0f, 30.0f);
 
+    offset = glm::vec3(0.f);
+
     glm::vec3 eye = glm::vec3(0.0f, 30.0f, 450.f);
     cameraBufferObject.viewMatrix = glm::lookAt(eye, eye + lookAtDir, glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
@@ -64,7 +66,7 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     float radTheta = glm::radians(theta);
     float radPhi = glm::radians(phi);
 
-    cameraBufferObject.cameraPosition = glm::vec4(-radius * glm::sin(radTheta), -radius * glm::cos(radTheta), cameraBufferObject.cameraPosition.z, 1.0f);
+    cameraBufferObject.cameraPosition = glm::vec4(-radius * glm::sin(radTheta), -radius * glm::cos(radTheta), cameraBufferObject.cameraPosition.z, 1.0f) + glm::vec4(offset, 0.f);
     cameraBufferObject.viewMatrix = glm::lookAt(glm::vec3(cameraBufferObject.cameraPosition), target, glm::vec3(0.0f, 0.0f, 1.0f));
 
     lookAtDir = -glm::vec3(cameraBufferObject.viewMatrix[0][2], cameraBufferObject.viewMatrix[1][2], cameraBufferObject.viewMatrix[2][2]);
@@ -105,6 +107,9 @@ void Camera::UpdatePosition(Direction dir)
     default: return;
     } 
     cameraBufferObject.cameraPosition += glm::vec4(5.f * vecDir, 1.0);
+    target += 5.f * vecDir;
+    offset += 5.f * vecDir;
+    radius = glm::abs(450.f - 5.f * vecDir.y);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
