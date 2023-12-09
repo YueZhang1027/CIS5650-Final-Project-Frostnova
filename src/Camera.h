@@ -49,13 +49,11 @@ private:
     float r, theta, phi;
     float radius;
     glm::vec3 target;
+    glm::vec3 offset;
 
     glm::vec3 lookAtDir;
     glm::vec3 right;
     glm::vec3 up;
-
-    float pitch;
-    float yaw;
 
 public:
     Camera(Device* device, float aspectRatio);
