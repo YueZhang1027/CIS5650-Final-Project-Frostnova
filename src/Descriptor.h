@@ -24,7 +24,7 @@ namespace Descriptor {
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
         Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
     void CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, 
-        Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex);
+        Texture* modelingNVDFTex, Texture* cloudDetailNoiseTex);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
 
     void CleanUp(VkDevice logicalDevice);
@@ -43,6 +43,7 @@ namespace Descriptor {
     extern VkDescriptorSet frameDescriptorSet;
     extern VkDescriptorSet computeImagesDescriptorSet;
     extern VkDescriptorSet computeNubisCubedImagesDescriptorSet;
+    extern VkDescriptorSet lightGridDescriptorSet;
 
     extern VkDescriptorSet cameraDescriptorSet;
     extern VkDescriptorSet sceneDescriptorSet;

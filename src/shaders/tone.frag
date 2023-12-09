@@ -3,6 +3,20 @@
 
 layout(set = 0, binding = 0) uniform sampler2D texColor;
 
+layout(set = 1, binding = 0) uniform CameraObject {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPosition;
+} camera;
+
+layout(set = 2, binding = 0) uniform TimeObject {
+    float deltaTime;
+    float totalTime;
+    float sunPositionX;
+    float sunPositionY;
+    float sunPositionZ;
+} time;
+
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 
@@ -21,14 +35,53 @@ vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
     return pow(color, vec3(invGamma));
 }
 
-void main() {
-    vec3 col = texture(texColor, fragTexCoord).xyz;
+vec4 GodRay()
+{
+    if(time.sunPositionY < 0)
+    {
+        return vec4(0);
+    }
 
+    float decay = 0.96;
+    float exposure = 0.09;
+    float density = 0.2;
+    float weight = 0.58767;
+
+    int NUM_SAMPLES = 100;
+
+    vec2 tc = fragTexCoord;
+    vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
+    vec4 sunScreenPos = camera.proj * camera.view * vec4(sunPos, 1.0);
+    sunScreenPos /= sunScreenPos.w;
+
+    vec2 deltaTexCoord = tc * 2.0 - 1.0 - sunScreenPos.xy;
+    deltaTexCoord *= 1.0 / float(NUM_SAMPLES) * density;
+    float illuminationDecay = 1.0;
+    vec4 color = texture(texColor, tc) * 0.4;
+
+    for(int i=0; i < NUM_SAMPLES ; i++)
+    {
+        tc -= deltaTexCoord;
+        vec4 samp = texture(texColor, tc) * 0.4;
+        samp *= illuminationDecay * weight;
+        color += samp;
+        illuminationDecay *= decay;
+    }
+    color.a = exposure;
+    return color;
+}
+
+void main() {
+    vec4 sceneCol = texture(texColor, fragTexCoord);
+    // sceneCol += GodRay() * 0.09;
+
+    vec3 col = sceneCol.xyz;
     float whitepoint = 1.0;
     col = tonemap(col, 0.7, 1.0 / 2.2, whitepoint);
     
     float vignette = dot(fragTexCoord - 0.5, fragTexCoord - 0.5);
     
     col = mix(col, vec3(0.1, 0.05, 0.13), vignette);
+   
     outColor = vec4(col, 1.0);
 }
