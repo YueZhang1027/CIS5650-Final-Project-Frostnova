@@ -47,10 +47,15 @@ private:
     UniformBuffer cameraParamBuffer;
 
     float r, theta, phi;
+    float radius;
+    glm::vec3 target;
 
     glm::vec3 lookAtDir;
     glm::vec3 right;
     glm::vec3 up;
+
+    float pitch;
+    float yaw;
 
 public:
     Camera(Device* device, float aspectRatio);
@@ -62,6 +67,7 @@ public:
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePosition(Direction dir);
+    void UpdateAngle(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
 };

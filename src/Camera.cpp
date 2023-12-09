@@ -12,19 +12,20 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
     r = 10.0f;
     theta = 0.0f;
     phi = 0.0f;
+    radius = 450;
+    target = glm::vec3(0.f, 0.f, 30.f);
 
-    lookAtDir = glm::vec3(0.0f, 30.0f, 0.0f);
+    lookAtDir = glm::vec3(0.0f, 30.f, 0.0f);
     right = glm::vec3(30.0f, 0.0f, 0.0f);
     up = glm::vec3(0.0f, 0.0f, 30.0f);
 
-    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 eye = glm::vec3(0.0f, 30.0f, 450.f);
     cameraBufferObject.viewMatrix = glm::lookAt(eye, eye + lookAtDir, glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
-    cameraBufferObject.cameraPosition = glm::vec4(eye, 1.0f);
+    cameraBufferObject.cameraPosition = glm::vec4(cameraBufferObject.viewMatrix[3][0], cameraBufferObject.viewMatrix[3][1], cameraBufferObject.viewMatrix[3][2], 1.0f);
 
     // phi, theta
-
 
     camBuffer.MapMemory(device, sizeof(CameraBufferObject));
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
@@ -58,22 +59,17 @@ VkBuffer Camera::GetCameraParamBuffer() const {
 void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     theta += deltaX;
     phi += deltaY;
-    r = glm::clamp(r - deltaZ, 1.0f, 50.0f);
+    r = r - deltaZ;
 
     float radTheta = glm::radians(theta);
     float radPhi = glm::radians(phi);
 
-    glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), radTheta, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), radPhi, glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), glm::vec3(cameraBufferObject.cameraPosition)) 
-        * rotation 
-        * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, r));
+    cameraBufferObject.cameraPosition = glm::vec4(-radius * glm::sin(radTheta), -radius * glm::cos(radTheta), cameraBufferObject.cameraPosition.z, 1.0f);
+    cameraBufferObject.viewMatrix = glm::lookAt(glm::vec3(cameraBufferObject.cameraPosition), target, glm::vec3(0.0f, 0.0f, 1.0f));
 
-    cameraBufferObject.viewMatrix = glm::inverse(finalTransform);
-    cameraBufferObject.cameraPosition = finalTransform * glm::vec4(0.f, 0.f, 0.f, 1.0f);
-
-    lookAtDir = glm::vec3(finalTransform * glm::vec4(0.f, 0.0f, -30.f, 1.0f) - cameraBufferObject.cameraPosition);
-    right = glm::vec3(finalTransform * glm::vec4(30.f, 0.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
-    up = glm::vec3(finalTransform * glm::vec4(0.f, 30.0f, 0.f, 1.0f) - cameraBufferObject.cameraPosition);
+    lookAtDir = -glm::vec3(cameraBufferObject.viewMatrix[0][2], cameraBufferObject.viewMatrix[1][2], cameraBufferObject.viewMatrix[2][2]);
+    right = glm::vec3(cameraBufferObject.viewMatrix[0][0], cameraBufferObject.viewMatrix[1][0], cameraBufferObject.viewMatrix[2][0]);
+    up = glm::vec3(cameraBufferObject.viewMatrix[0][1], cameraBufferObject.viewMatrix[1][1], cameraBufferObject.viewMatrix[2][1]);
 
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
@@ -108,8 +104,12 @@ void Camera::UpdatePosition(Direction dir)
         break;
     default: return;
     } 
-    cameraBufferObject.cameraPosition += glm::vec4(30.f * vecDir, 1.0);
+    cameraBufferObject.cameraPosition += glm::vec4(5.f * vecDir, 1.0);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+}
+
+void Camera::UpdateAngle(Direction dir)
+{
 }
 
 void Camera::UpdatePrevBuffer() {

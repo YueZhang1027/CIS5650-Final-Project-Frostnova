@@ -167,7 +167,7 @@ float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, ve
 
     // Step2-Sample noise
     float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
-    // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
+    // Rï¿½ï¿½Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 
     vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * 0.05); // TODO: check freq
 
@@ -286,16 +286,16 @@ void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, float cloud_d
     // Calculate Density to Sun
     float density_to_sun;
 
-    // ÎüÊÕÓëÍâÉ¢ÉäÆÀ¹À£¬inSunLightSummedDensitySamplesÊÇÔ¤ÏÈ¼ÆËãµÄDensityToSun
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½inSunLightSummedDensitySamplesï¿½ï¿½Ô¤ï¿½È¼ï¿½ï¿½ï¿½ï¿½DensityToSun
     // float sun_dot = ray
     // ms_volume *= exp(-density_to_sun * ValueRemap(sun_dot, 0.0, 0.9, 0.25, ValueRemap(cloud_distance, -128.0, 0.0, 0.05, 0.25)));
 
-    // // Í¬2.5DÔÆÒ»Ñù£¬Ò²Ê¹ÓÃÎ¬¶ÈÆÊÃæÀ´½üËÆ»·¾³¹â
+    // // Í¬2.5Dï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ò²Ê¹ï¿½ï¿½Î¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ»ï¿½ï¿½ï¿½ï¿½ï¿½
     // float ambient_scattering = pow(1.0 - dimensional_profile, 0.5);
-    // // ³¯ÏòÌì¹âµÄ»·¾³¹â
+    // // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½
     // float ambient_scattering = pow(1.0 - dimensional_profile, 0.5) * exp(-summed_ambient_density);
     // 
-    // // µÚ¶þ¹âÔ´Ö§³Ö£ºÖ÷ÒªÊÇ×öÎª¾Ö²¿¹âÔ´µÄµã¹âÔ´
+    // // ï¿½Ú¶ï¿½ï¿½ï¿½Ô´Ö§ï¿½Ö£ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Îªï¿½Ö²ï¿½ï¿½ï¿½Ô´ï¿½Äµï¿½ï¿½Ô´
     // float potential_energy = pow( 1.0 - (d1 / radius), 12.0);
     // float pseudo_attenuation = (1.0 - saturate(density * 5.0)); 
     // float glow_energy = potential_energy * pseudo_attenuation;
