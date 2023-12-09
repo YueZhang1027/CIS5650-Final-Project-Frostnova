@@ -47,6 +47,8 @@ private:
     UniformBuffer cameraParamBuffer;
 
     float r, theta, phi;
+    float radius;
+    glm::vec3 target;
 
     glm::vec3 lookAtDir;
     glm::vec3 right;

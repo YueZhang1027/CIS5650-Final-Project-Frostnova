@@ -24,8 +24,8 @@
 // Raymarching
 #define MAX_RAYMARCHING_DISTANCE 1000.0
 #define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
-#define VOXEL_BOUND_MIN vec3(0.0, 0.0, 0.0)
-#define VOXEL_BOUND_MAX vec3(512.0, 512.0, 64.0)
+#define VOXEL_BOUND_MIN vec3(-1024.0, -1024.0, -128.0)
+#define VOXEL_BOUND_MAX vec3(1024.0, 1024.0, 128.0)
 
 // Density
 #define DENSITY_SCALE 0.1
