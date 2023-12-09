@@ -77,7 +77,7 @@ private:
     Texture* curlNoiseTexture;
 
     Texture* modelingDataTexture;
-    Texture* fieldDataTexture;
+    // Texture* fieldDataTexture;
     Texture* cloudDetailNoiseTexture;
 
     // --- Geometries ---
