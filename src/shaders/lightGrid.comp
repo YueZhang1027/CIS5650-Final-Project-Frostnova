@@ -3,6 +3,9 @@
 
 #define WORKGROUP_SIZE 32
 
+#define X_SIZE 512
+#define Z_SIZE 64
+
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 
 layout (set = 0, binding = 0, rgba32f) uniform image3D targetImage;
@@ -30,7 +33,7 @@ layout(set = 2, binding = 0) uniform TimeObject {
 
 float GetVoxelCloudProfileDensity(vec3 coord) {
 
-    vec3 inSamplePosition = vec3(coord.x/256, coord.y/256, coord.z/32);
+    vec3 inSamplePosition = vec3(coord.x/X_SIZE, coord.y/X_SIZE, coord.z/Z_SIZE);
 
     vec4 NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
     float dimensionalProfile = NVDF.r;
@@ -45,13 +48,14 @@ float GetVoxelCloudProfileDensity(vec3 coord) {
 
 bool InBoundary(vec3 coord)
 {
-    return coord.x >= 0 && coord.x < 256
-        && coord.y >= 0 && coord.y < 256
-        && coord.z >= 0 && coord.z < 32;
+    return coord.x >= 0 && coord.x < X_SIZE
+        && coord.y >= 0 && coord.y < X_SIZE
+        && coord.z >= 0 && coord.z < Z_SIZE;
 }
 
 void main() {
-   ivec3 coord = ivec3(gl_GlobalInvocationID.xyz);
+    ivec3 coord = ivec3(gl_GlobalInvocationID.xyz);
+    vec4 finalColor = vec4(0, 0, 0, 0);
 
     // Update Sun
     vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
@@ -59,9 +63,12 @@ void main() {
 
     float density = GetVoxelCloudProfileDensity(coord);
 
+    // low lod sample of density for light model
+    finalColor.g = density;
+
     if(density <= 0)
     {
-        imageStore(targetImage, coord, vec4(0, 0, 0, 0));
+        imageStore(targetImage, coord, finalColor);
 		return;
     }
 
@@ -73,6 +80,6 @@ void main() {
        nextCoord += sunDir;
     }
      
-    vec4 finalColor = vec4(density, 0, 0, 0);
+    finalColor.r = density;
     imageStore(targetImage, coord, finalColor);
 }

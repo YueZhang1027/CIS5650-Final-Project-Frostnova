@@ -63,6 +63,9 @@ layout(set = 2, binding = 1) uniform sampler3D cloudDetailNoiseTexture;
 layout(set = 3, binding = 0) uniform TimeObject {
     float deltaTime;
     float totalTime;
+    float sunPositionX;
+    float sunPositionY;
+    float sunPositionZ;
 } time;
 
 layout (set = 5, binding = 0) uniform sampler3D lightGrid;
@@ -90,7 +93,8 @@ struct CloudRenderingRaymarchInfo {
 struct CloudRenderingPixelData {
     float mDensity;
     float mTransmittance;
-    vec3 mColor;
+    float mAlpha;
+    vec3 mCloudColor;
 };
 
 struct Ray {
@@ -212,6 +216,7 @@ float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, ve
 }
 
 
+
 VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data, vec3 samplePosition, float inMipLevel, bool inHFDetails) {
     VoxelCloudDensitySamples density_samples;
     density_samples.mProfile = 0.0;
@@ -231,73 +236,54 @@ VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo 
     return density_samples;
 }
 
+float Test(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 sampleCoord) {
+    ivec3 coord = ivec3(floor(sampleCoord.x * X_SIZE), floor(sampleCoord.y * X_SIZE), floor(sampleCoord.z * Z_SIZE));
+    return imageLoad(lightGrid, coord).r;
+}
+
 //--------------------------------------------------------
 //					Lighting Functions
 //--------------------------------------------------------
-float HG(float cos_angle, float g) {
-    float g2 = g * g;
-    float val = ((1.0 - g2) / pow(1.0 + g2 - 2.0 * g * cos_angle , 1.5)) * ONE_OVER_FOURPI;
-    return val;
+float HG(float cos_angle, float eccentricity) {
+    float g2 = eccentricity * eccentricity;
+    float val = ((1.0 - g2) / pow(1.0 + g2 - 2.0 * eccentricity * cos_angle , 1.5)) * ONE_OVER_FOURPI;
+    return val ;
 }
 
-// float InOutScatter(float cos_angle) {
-//     float first_hg = HG(cos_angle, cloud_inscatter);
-//     float second_hg = cloud_silver_intensity * pow (clamp(cos_angle, 0, 1), cloud_silver_exponent);
-//     float in_scatter_hg = max(first_hg, second_hg);
-//     float out_scatter_hg = HG (cos_angle , -cloud_outscatter);
-//     return lerp(in_scatter_hg, out_scatter_hg ,cloud_in_vs_outscatter);
-// }
+float Remap(float original_value, float original_min, float original_max, float new_min, float new_max)
+{
+    return new_min + (((original_value - original_min) / (original_max - original_min)) * (new_max - new_min));
+}
 
-// float Attenuation(float density_to_sun, float cos_angle) {
-//     float prim = exp(-cloud_beer * density_to_sun);
-//     float scnd = exp(-cloud_beer * cloud_attuention_clampval) * 0.7;
-//     //reduce clamping while facing the sun
-//     float checkval = ValueRemap(cos_angle, 0.0, 1.0, scnd, scnd * 0.5);
-//     return max(checkval, prim);
-//  }
-// 
-//  float OutScatterAmbient(float density, float percent_height){
-//      float depth = cloud_outscatter_ambient * pow(density,ValueRemap(percent_height, 0.3, 0.9, 0.5, 1.0));
-//      float vertical = pow(clamp(ValueRemap(percent_height, 0.0, 0.3, 0.8, 1.0)) ,0.8);
-//      float out_scatter = depth * vertical;
-//      out_scatter = 1.0 - clamp(out_scatter, 0.0f, 1.0f);
-//      return out_scatter;
-// }
+float GetHeightFractionForPoint(vec3 inPosition, float cloudMin, float cloudMax)
+{
+    float height_fraction = (inPosition.z - cloudMin) / (cloudMax - cloudMin);
+    return clamp(height_fraction, 0, 1);
+}
 
-// vec3 CalculateLight(float density, float density_to_sun, float cos_angle, float percent_height, float bluenoise, float dist_along_ray {
-//     float attenuation_prob = Attenuation(density_to_sun, cos_angle);
-//     float ambient_out_scatter = OutScatterAmbient(density, percent_height);
+float GetDensityToSun(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data,
+                      vec3 samplePos, vec3 lightDir)
+{
+    float totalDensity = 0.0f;
+    vec3 pos = samplePos;
+    vec3 sampleCoord;
 
-//     // Can be calculated once for each march but gave no/tiny per improvements.
-//     const float sun_highlight = InOutScatter(cos_angle);
-//     float attenuation = attenuation_prob * sun_highlight * ambient_out_scatter;
+    for (int i = 0; i < 2; i++) {
+        pos += lightDir * inRaymarchInfo.mStepSize;
+        sampleCoord = GetSampleCoord(pos);
+        totalDensity += GetVoxelCloudDensitySamples(inRaymarchInfo, modeling_data, sampleCoord, 1.0f, false).mFull;
+    }
 
-//     // Ambient min (dist_along_ray used so that far away regions (huge steps) arent calculated (wrongly))
-//     attenuation = max(density * cloud_ambient_minimum * (1 - pow(clamp(dist_along_ray / 4000, 0.0f, 1.0f), 2)), attenuation);
-
-//     //combat banding a bit more
-//     attenuation += bluenoise * 0.003;
-//     vec3 ret_color = attenuation * sun_color;
-//     return ret_color;
-//  }
-
-void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, float cloud_distance, CloudRenderingRaymarchInfo raymarch_info, inout CloudRenderingPixelData ioPixelData, bool inHFDetails) {
-    ioPixelData.mDensity += sampleData.mFull;
-    float ms_volume = sampleData.mProfile;
     pos += lightDir * inRaymarchInfo.mStepSize;
     sampleCoord = GetSampleCoord(pos);
-    totalDensity += texture(lightGrid, sampleCoord).r;
+    ivec3 coord = ivec3(floor(sampleCoord.x * X_SIZE), floor(sampleCoord.y * X_SIZE), floor(sampleCoord.z * Z_SIZE));
+    totalDensity += imageLoad(lightGrid, coord).r;
+
     return totalDensity;
 }
 
 float GetDensityLowLOD(vec3 sampleCoord) {
     return texture(lightGrid, sampleCoord).g;
-}
-
-float GetVoxelCloudDistance(vec3 inSamplePosition) {
-    vec3 sampled_color = texture(fieldNVDFTexture, inSamplePosition).rgb;
-    float result = dot(sampled_color, vec3(1.0, 0.03529415, 0.00069204));
-    return ValueRemap(result, 0, 1, -256, 4096);
 }
 
 void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data,
@@ -311,32 +297,63 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     float cloud_distance = GetVoxelCloudDistance(samplePosition);
 
     // Calculate Density to Sun
-    float density_to_sun;
+    float density_to_sun = GetDensityToSun(inRaymarchInfo, modeling_data, samplePosition, lightDir);
 
-    // ��������ɢ��������inSunLightSummedDensitySamples��Ԥ�ȼ����DensityToSun
-    // float sun_dot = ray
-    // ms_volume *= exp(-density_to_sun * ValueRemap(sun_dot, 0.0, 0.9, 0.25, ValueRemap(cloud_distance, -128.0, 0.0, 0.05, 0.25)));
+    // Calculate Low LOD Density
+    float density_Lod = GetDensityLowLOD(sampleCoord);
 
-    // // ͬ2.5D��һ����Ҳʹ��ά�����������ƻ�����
-    // float ambient_scattering = pow(1.0 - dimensional_profile, 0.5);
-    // // �������Ļ�����
-    // float ambient_scattering = pow(1.0 - dimensional_profile, 0.5) * exp(-summed_ambient_density);
-    // 
-    // // �ڶ���Դ֧�֣���Ҫ����Ϊ�ֲ���Դ�ĵ��Դ
-    // float potential_energy = pow( 1.0 - (d1 / radius), 12.0);
-    // float pseudo_attenuation = (1.0 - saturate(density * 5.0)); 
-    // float glow_energy = potential_energy * pseudo_attenuation;
+    // Calculate Height Fraction
+    float height_fraction = GetHeightFractionForPoint(samplePosition, VOXEL_BOUND_MIN.z, VOXEL_BOUND_MAX.z);
+
+    // Ambient (Nubis3 slides)
+    profile *= exp(-density_to_sun * Remap(cos_angle, 0.0, 0.9, 0.25, Remap(cloud_distance, -128.0, 0.0, 0.05, 0.25)));
+    float ambient_scattering = pow(1.0 - profile, 0.5) * exp(-density_to_sun);
+
+    
+    // Light Energy (Nubis2 slides)
+    float silver_spread = 1.32;
+    float silver_intensity = 1.27;
+    float brightness = 0.5;
+    float eccentricity = 1.0;
+
+    // Attenuation
+    float primary_attenuation = exp(-density_to_sun);
+    float secondary_attenuation = exp(-density_to_sun * 0.25) * 0.7;
+    float attenuation_probability = max(Remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25) , primary_attenuation);
+     
+    // In-scattering 
+    float depth_probability = mix(0.05 + pow(density_Lod, Remap(height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/inRaymarchInfo.mStepSize, 0, 1));
+    float vertical_probability = pow(Remap(height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8);
+    float in_scatter_probability = clamp(depth_probability * vertical_probability, 0, 1);
+
+    // Phase probability
+    float phase_probability = max(HG(cos_angle, eccentricity), silver_intensity * HG(cos_angle, 0.99 - silver_spread));
+
+    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;
+    //float light_energy = density_to_sun;
+
+    light_energy = exp(-light_energy * 5);
+
+    vec3 white = vec3(1, 1, 1);
+    vec3 _colA = vec3(1.0, 0.87, 0.65);
+    vec3 _colB = vec3(0.23f, 0.36f, 0.47f);
+    float _colorOffset1 = 0.16;
+    float _colorOffset2 = 2.6;
+    float _darkness = 0.5;
+
+    vec3 cloudColor = mix(_colA, white, clamp(light_energy * _colorOffset1, 0, 1));
+    cloudColor = mix(_colB, cloudColor, clamp(pow(light_energy * _colorOffset2, 3), 0, 1));
+    cloudColor = light_energy * cloudColor;
+    
+    ioPixelData.mTransmittance += sampleData.mFull * light_energy * ioPixelData.mAlpha; 
+    ioPixelData.mCloudColor += sampleData.mFull * cloudColor * ioPixelData.mAlpha;
+    ioPixelData.mAlpha *= exp(-sampleData.mFull * 1.0);  
 }
+
 
 //--------------------------------------------------------
 //					Raymarching Functions
 //--------------------------------------------------------
-// float GetVoxelCloudDistance(vec3 inSamplePosition) {
-//     vec3 sampled_color = texture(fieldNVDFTexture, inSamplePosition).rgb;
-//     float result = dot(sampled_color, vec3(1.0, 0.03529415, 0.00069204));
-//     return ValueRemap(sampled_color.r, 0, 1, -256, 4096);
-// }
-
 void SetRaymarchLimit(Ray ray, inout CloudRenderingRaymarchInfo raymarch_info) {
     float tmin = 4096.0f, tmax = -4096.0f;
 
@@ -401,17 +418,14 @@ void SetRaymarchLimit(Ray ray, inout CloudRenderingRaymarchInfo raymarch_info) {
     raymarch_info.mDistance = raymarch_info.mLimit.x;
 }
 
-void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
+void RaymarchVoxelClouds(Ray ray, vec3 lightDir, inout CloudRenderingPixelData ioPixelData) {
     CloudRenderingRaymarchInfo raymarch_info;
     raymarch_info.mDistance = 0.0;
 
     // Intersect with bounding box
     SetRaymarchLimit(ray, raymarch_info);
 
-    float cosTheta = dot(ray.mDirection, normalize(vec3(-1, -1, 0.0f)));
-    float henyeyGreenstein = HG(cosTheta, 0.2f);
-    float absorptionCoefficient = 0.5f;
-
+    float cos_angle = dot(ray.mDirection, lightDir);
 
     while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT &&
          raymarch_info.mDistance < min(MAX_RAYMARCHING_DISTANCE, raymarch_info.mLimit.y)) {
@@ -434,20 +448,10 @@ void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
              if (raymarch_info.mCloudDistance < 0.0) {
 		         VoxelCloudDensitySamples voxel_cloud_sample_data = GetVoxelCloudDensitySamples(raymarch_info, modeling_data, sample_position, 1.0f, true); // sample_position?
                  
-                 if (voxel_cloud_sample_data.mProfile > 0.0f) {
-			         // IntegrateCloudSampleData(voxel_cloud_sample_data, raymarch_info.mCloudDistance, raymarch_info, ioPixelData, false);
-
-                     // ioPixelData.mTransmittance *= exp(-absorptionCoefficient * voxel_cloud_sample_data.mFull * raymarch_info.mStepSize);
-
-                     float beersLaw = exp(-voxel_cloud_sample_data.mFull * raymarch_info.mStepSize);
-                     float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * voxel_cloud_sample_data.mFull * raymarch_info.mStepSize));
-                     beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
-                     // 
-                     // float inScatter = 0.1 + pow(voxel_cloud_sample_data.mProfile, ValueRemap(0.5, 0.3, 0.85, 0.5, 2.0));
-                     // 
-                     ioPixelData.mTransmittance = mix(ioPixelData.mTransmittance, henyeyGreenstein * beersLaw, (1.0f - ioPixelData.mDensity));
-
+                 if (voxel_cloud_sample_data.mProfile > 0.0f) {		         
                      ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
+                     IntegrateLightEnergy(raymarch_info, modeling_data, voxel_cloud_sample_data, 
+                         sample_position, sample_coord, lightDir, cos_angle, ioPixelData);
                      if (ioPixelData.mDensity > 1.0f) {
                         ioPixelData.mDensity = 1.0f;
                         break;
@@ -481,6 +485,150 @@ Ray GenerateRay(vec2 uv) {
 }
 
 //--------------------------------------------------------
+//					        Sky
+//--------------------------------------------------------
+
+float depolarizationFactor = 0.137;
+float luminance = 1.0;
+float mieCoefficient = 0.0074;
+float mieDirectionalG = 0.468;
+vec3 mieKCoefficient = vec3(0.686, 0.678, 0.666);
+float mieV = 4.007;
+float mieZenithLength = 7100;
+float numMolecules = 2.542e25;
+vec3 primaries = vec3(6.8e-7, 5.5e-7, 4.5e-7);
+float rayleigh = 5.75;
+float rayleighZenithLength = 3795;
+float refractiveIndex = 1.000128;
+float sunAngularDiameterDegrees = 0.032;
+float sunIntensityFactor = 1024;
+float sunIntensityFalloffSteepness = 1.4;
+float tonemapWeighting = 19.50;
+float turbidity = 12.575;
+vec3 UP = vec3(0.0, 1.0, 0.0);
+
+float noise(vec3 coord)
+{
+    float starThreshold = 0.97;
+    float n = fract(415.92653 * (0.7 * cos(37.3 * coord.x) + 1.2 * cos(56.1 * coord.y) + 0.2 * cos(45.8 * coord.z)));
+    if (n >= starThreshold)
+    {
+        n = pow((n - starThreshold) / (1.0 - starThreshold), 10.0);
+    }
+    else n = 0.0;
+    return n;
+}
+
+vec3 totalRayleigh(vec3 lambda)
+{
+	return (8.0 * pow(PI, 3.0) * pow(pow(refractiveIndex, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * depolarizationFactor)) / (3.0 * numMolecules * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * depolarizationFactor));
+}
+
+vec3 totalMie(vec3 lambda, vec3 K, float T)
+{
+	float c = 0.2 * T * 10e-18;
+	return 0.434 * c * PI * pow((2.0 * PI) / lambda, vec3(mieV - 2.0)) * K;
+}
+
+float rayleighPhase(float cosTheta)
+{
+	return (3.0 / (16.0 * PI)) * (1.0 + pow(cosTheta, 2.0));
+}
+
+float henyeyGreensteinPhase(float cosTheta, float g)
+{
+	return (1.0 / (4.0 * PI)) * ((1.0 - pow(g, 2.0)) / pow(1.0 - 2.0 * g * cosTheta + pow(g, 2.0), 1.5));
+}
+
+float sunIntensity(float zenithAngleCos)
+{
+	float cutoffAngle = PI / 1.95; // Earth shadow hack
+	return sunIntensityFactor * max(0.0, 1.0 - exp(-((cutoffAngle - acos(zenithAngleCos)) / sunIntensityFalloffSteepness)));
+}
+
+vec3 Uncharted2Tonemap(vec3 W)
+{
+    float A = 0.15; 
+    float B = 0.50; 
+    float C = 0.10; 
+    float D = 0.20; 
+    float EE = 0.02; 
+    float F = 0.30; 
+	return ((W * (A * W + C * B) + D * EE) / (W * (A * W + B) + D * F)) - EE / F;
+}
+
+vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
+{ 
+    //star
+    float intensity = 0.0;
+    if (sunDir.y < 0.0)
+    {
+        intensity = 1.0;
+        if (sunDir.y > -0.75)
+        {
+            intensity = mix(0.0, 1.0, -sunDir.y);
+        }
+        vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
+        float starVal = noise(coordFloor) * intensity * 0.8;
+        return vec3(starVal);
+    }
+    return vec3(0);
+}
+
+vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
+{
+    // Rayleigh coefficient
+	float sunfade = 1.0 - clamp(1.0 - exp((sunPosition.y / 450000.0)), 0.0, 1.0);
+	float rayleighCoefficient = rayleigh - (1.0 * (1.0 - sunfade));
+	vec3 betaR = totalRayleigh(primaries) * rayleighCoefficient;
+	
+	// Mie coefficient
+	vec3 betaM = totalMie(primaries, mieKCoefficient, turbidity) * mieCoefficient;
+	
+	// Optical length, cutoff angle at 90 to avoid singularity
+	float zenithAngle = acos(max(0.0, dot(UP, rayDir)));
+	float denom = cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253);
+	float sR = rayleighZenithLength / denom;
+	float sM = mieZenithLength / denom;
+	
+	// Combined extinction factor
+	vec3 Fex = exp(-(betaR * sR + betaM * sM));
+	
+	// In-scattering
+	vec3 sunDirection = normalize(sunPosition);
+	float cosTheta = dot(rayDir, sunDirection);
+	vec3 betaRTheta = betaR * rayleighPhase(cosTheta * 0.5 + 0.5);
+	vec3 betaMTheta = betaM * henyeyGreensteinPhase(cosTheta, mieDirectionalG);
+	float sunE = sunIntensity(dot(sunDirection, UP));
+	vec3 Lin = pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * (1.0 - Fex), vec3(1.5));
+	Lin *= mix(vec3(1.0), pow(sunE * ((betaRTheta + betaMTheta) / (betaR + betaM)) * Fex, vec3(0.5)), clamp(pow(1.0 - dot(UP, sunDirection), 5.0), 0.0, 1.0));
+	
+	// Composition + solar disc
+	float sunAngularDiameterCos = cos(sunAngularDiameterDegrees);
+	float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
+	vec3 L0 = vec3(0.1) * Fex;
+    float sunHDR = mix(19000.0, 1, cloudDensity);
+	L0 += sunE * sunHDR * Fex * sundisk * (1.0 - cloudDensity);
+	vec3 texColor = Lin + L0;
+	texColor *= 0.04;
+	texColor += vec3(0.0, 0.001, 0.0025) * 0.3;
+	
+	// Tonemapping
+	vec3 whiteScale = 1.0 / Uncharted2Tonemap(vec3(tonemapWeighting));
+	vec3 curr = Uncharted2Tonemap((log2(2.0 / pow(luminance, 4.0))) * texColor);
+	vec3 color = curr * whiteScale;
+	vec3 retColor = pow(color, vec3(1.0 / (1.2 + (1.2 * sunfade))));
+
+    // Star
+    retColor += GetStarColor(rayDir, sunDirection) * (1.0 - cloudDensity);
+
+    vec4 result;
+    result.xyz = retColor;
+    result.a = mix(1, 40, clamp(sunDirection.y, 0, 1));
+    return result;
+}
+
+//--------------------------------------------------------
 //					Main Functions
 //--------------------------------------------------------
 
@@ -493,26 +641,30 @@ void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(pixel) / dim; 
 
+    // Update Sun
+    vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
+    vec3 sunDir = normalize(sunPos);
+
     // Get Camera Ray
     Ray ray = GenerateRay(uv);
 
     CloudRenderingPixelData ioPixelData;
     ioPixelData.mDensity = 0.0;
     ioPixelData.mTransmittance = 1.0;
-    ioPixelData.mColor = vec3(0.0);
+    ioPixelData.mAlpha = 1.0;
+    ioPixelData.mCloudColor = vec3(0);
 
 	// Raymarch
-	RaymarchVoxelClouds(ray, ioPixelData);
-     
+	//RaymarchVoxelCloudsTest(ray, sunDir, ioPixelData);
+    RaymarchVoxelClouds(ray, sunDir, ioPixelData);
+
     // Background color
     vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
     
     float accumDensity = ioPixelData.mDensity;
     float transmittance = ioPixelData.mTransmittance;
 
-
-    accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-   // vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
+    //vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
 
     vec3 cloudColor = ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
      
