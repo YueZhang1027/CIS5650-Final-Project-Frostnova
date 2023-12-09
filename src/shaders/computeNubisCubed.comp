@@ -19,7 +19,7 @@
 #define USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE 10.0
 
 // Raymarching
-#define MAX_RAYMARCHING_DISTANCE 6000.0
+#define MAX_RAYMARCHING_DISTANCE 500.0
 #define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
 #define VOXEL_BOUND_MIN vec3(-1024.0, -1024.0, -128.0)
 #define VOXEL_BOUND_MAX vec3(1024.0, 1024.0, 128.0)
@@ -311,7 +311,7 @@ void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, float cloud_d
 // }
 
 void SetRaymarchLimit(Ray ray, inout CloudRenderingRaymarchInfo raymarch_info) {
-    float tmin = 4096.0f, tmax = -256.0f, t = 0.0f;
+    float tmin = 4096.0f, tmax = -4096.0f;
 
     if (ray.mOrigin.x >= VOXEL_BOUND_MIN.x && ray.mOrigin.x <= VOXEL_BOUND_MAX.x && 
         ray.mOrigin.y >= VOXEL_BOUND_MIN.y && ray.mOrigin.y <= VOXEL_BOUND_MAX.y && 
@@ -321,31 +321,52 @@ void SetRaymarchLimit(Ray ray, inout CloudRenderingRaymarchInfo raymarch_info) {
 
     // x axis
     if (ray.mDirection.x != 0.0f) {
-		t = abs((VOXEL_BOUND_MAX.x - ray.mOrigin.x) / ray.mDirection.x);
-        vec3 p = ray.mOrigin + ray.mDirection * t;
+		float t1 = abs((VOXEL_BOUND_MAX.x - ray.mOrigin.x) / ray.mDirection.x);
+        vec3 p = ray.mOrigin + ray.mDirection * t1;
         if (p.y >= VOXEL_BOUND_MIN.y && p.y <= VOXEL_BOUND_MAX.y && p.z >= VOXEL_BOUND_MIN.z && p.z <= VOXEL_BOUND_MAX.z) {
-            tmin = min(tmin, t);
-            tmax = max(tmax, t);
+            tmin = min(tmin, t1);
+            tmax = max(tmax, t1);
+		}
+
+        float t2 = abs((VOXEL_BOUND_MIN.x - ray.mOrigin.x) / ray.mDirection.x);
+		p = ray.mOrigin + ray.mDirection * t2;
+		if (p.y >= VOXEL_BOUND_MIN.y && p.y <= VOXEL_BOUND_MAX.y && p.z >= VOXEL_BOUND_MIN.z && p.z <= VOXEL_BOUND_MAX.z) {
+			tmin = min(tmin, t2);
+			tmax = max(tmax, t2);
 		}
 	} 
 
 	// y axis
 	if (ray.mDirection.y != 0.0f) {
-		t = abs((VOXEL_BOUND_MAX.y - ray.mOrigin.y) / ray.mDirection.y);
-		vec3 p = ray.mOrigin + ray.mDirection * t;
+		float t1 = abs((VOXEL_BOUND_MAX.y - ray.mOrigin.y) / ray.mDirection.y);
+		vec3 p = ray.mOrigin + ray.mDirection * t1;
 		if (p.x >= VOXEL_BOUND_MIN.x && p.x <= VOXEL_BOUND_MAX.x && p.z >= VOXEL_BOUND_MIN.z && p.z <= VOXEL_BOUND_MAX.z) {
-			tmin = min(tmin, t);
-			tmax = max(tmax, t);
+			tmin = min(tmin, t1);
+			tmax = max(tmax, t1);
+		}
+
+        float t2 = abs((VOXEL_BOUND_MIN.y - ray.mOrigin.y) / ray.mDirection.y);
+        p = ray.mOrigin + ray.mDirection * t2;
+		if (p.x >= VOXEL_BOUND_MIN.x && p.x <= VOXEL_BOUND_MAX.x && p.z >= VOXEL_BOUND_MIN.z && p.z <= VOXEL_BOUND_MAX.z) {
+			tmin = min(tmin, t2);
+			tmax = max(tmax, t2);
 		}
 	} 
 
 	// z axis
 	if (ray.mDirection.z != 0.0f) {
-		t = abs((VOXEL_BOUND_MAX.z - ray.mOrigin.z) / ray.mDirection.z);
-		vec3 p = ray.mOrigin + ray.mDirection * t;
+		float t1 = abs((VOXEL_BOUND_MAX.z - ray.mOrigin.z) / ray.mDirection.z);
+		vec3 p = ray.mOrigin + ray.mDirection * t1;
 		if (p.x >= VOXEL_BOUND_MIN.x && p.x <= VOXEL_BOUND_MAX.x && p.y >= VOXEL_BOUND_MIN.y && p.y <= VOXEL_BOUND_MAX.y) {
-			tmin = min(tmin, t);
-			tmax = max(tmax, t);
+			tmin = min(tmin, t1);
+			tmax = max(tmax, t1);
+		}
+
+        float t2 = abs((VOXEL_BOUND_MIN.z - ray.mOrigin.z) / ray.mDirection.z);
+		p = ray.mOrigin + ray.mDirection * t2;
+        if (p.x >= VOXEL_BOUND_MIN.x && p.x <= VOXEL_BOUND_MAX.x && p.y >= VOXEL_BOUND_MIN.y && p.y <= VOXEL_BOUND_MAX.y) {
+			tmin = min(tmin, t2);
+			tmax = max(tmax, t2);
 		}
 	}
 
@@ -366,7 +387,7 @@ void RaymarchVoxelClouds(Ray ray, inout CloudRenderingPixelData ioPixelData) {
 
 
     while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT &&
-         raymarch_info.mDistance < raymarch_info.mLimit.y) {
+         raymarch_info.mDistance < min(MAX_RAYMARCHING_DISTANCE, raymarch_info.mLimit.y)) {
          vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
          vec3 sample_coord = GetSampleCoord(sample_position);
 
