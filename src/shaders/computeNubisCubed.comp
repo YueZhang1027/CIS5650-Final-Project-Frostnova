@@ -168,7 +168,7 @@ float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, ve
     float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
     // R£ºLow Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 
-    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * 0.01); // TODO: check freq
+    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * 0.05); // TODO: check freq
 
     // Step3-Define Detail Erosion
     // wispy
