@@ -36,6 +36,7 @@ namespace Image {
     Texture* CreateColorTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent, VkFormat format);
     Texture* CreateDepthTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent);
     Texture* CreateStorageTexture(Device* device, VkCommandPool commandPool, VkExtent2D extent);
+    Texture* CreateStorageTexture3D(Device* device, VkCommandPool commandPool, glm::ivec3 dimension);
 
     Texture* CreateTextureFromFile(Device* device, VkCommandPool commandPool, const char* path);
     Texture* CreateTexture3DFromFiles(Device* device, VkCommandPool commandPool, const char* path, glm::ivec3 dimension);

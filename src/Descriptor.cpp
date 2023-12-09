@@ -19,6 +19,7 @@ VkDescriptorSet Descriptor::computeImagesDescriptorSet;
 VkDescriptorSet Descriptor::computeNubisCubedImagesDescriptorSet;
 VkDescriptorSet Descriptor::cameraDescriptorSet;
 VkDescriptorSet Descriptor::sceneDescriptorSet;
+VkDescriptorSet Descriptor::lightGridDescriptorSet;
 
 void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
@@ -215,6 +216,9 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
 
+        // Light Grid
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+
         // Image samplers: frame
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
 
@@ -276,6 +280,7 @@ void Descriptor::CreateImageStorageDescriptorSet(VkDevice logicalDevice, Texture
 	// Update descriptor sets
 	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
+
 
 void Descriptor::CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet) {
     // Describe the desciptor set

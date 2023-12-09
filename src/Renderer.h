@@ -59,6 +59,7 @@ private:
     ReprojectShader* reprojectShader;
     ComputeShader* computeShader;
     ComputeNubisCubedShader* computeNubisCubedShader;
+    ComputeLightGridShader* computeLightGridShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
@@ -79,6 +80,8 @@ private:
     Texture* modelingDataTexture;
     Texture* fieldDataTexture;
     Texture* cloudDetailNoiseTexture;
+
+    Texture* lightGridTexture;
 
     // --- Geometries ---
     Model* backgroundQuad;
