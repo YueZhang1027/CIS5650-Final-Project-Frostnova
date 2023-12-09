@@ -308,7 +308,7 @@ void Renderer::CreateFrameResources() {
     cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
 
     // Light grid 
-    lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(256, 256, 32));
+    lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(512, 512, 64));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -444,7 +444,7 @@ void Renderer::RecordComputeCommandBuffer() {
 
         // Light Grid Compute Shader
         computeLightGridShader->BindShaderProgram(computeCommandBuffers[i]);
-        vkCmdDispatch(computeCommandBuffers[i], 256 / WORKGROUP_SIZE, 256 / WORKGROUP_SIZE, 32);
+        vkCmdDispatch(computeCommandBuffers[i], 512 / WORKGROUP_SIZE, 512 / WORKGROUP_SIZE, 64);
 
         computeNubisCubedShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
