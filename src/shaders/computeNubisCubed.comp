@@ -10,7 +10,7 @@
 // #define SUN_LOCATION vec3(0.0, 0.0, 0.0)
 
 // Cloud animation
-#define CLOUD_ANIMATE_SPEED 10.f
+// #define CLOUD_ANIMATE_SPEED 10.f
 #define CLOUD_WIND_OFFSET vec2(0.1, 0.1)
 
 #define EPSILON 0.1
@@ -20,8 +20,8 @@
 #define USE_FINE_DETAIL_MIPMAP_DISTANCE_SCALE 10.0
 
 // Raymarching
-#define MAX_RAYMARCHING_DISTANCE 500.0
-#define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
+// #define MAX_RAYMARCHING_DISTANCE 500.0
+// #define VIEW_RAY_TRANSIMITTANCE_LIMIT 0.01
 #define VOXEL_BOUND_MIN vec3(-1024.0, -1024.0, -128.0)
 #define VOXEL_BOUND_MAX vec3(1024.0, 1024.0, 128.0)
 
@@ -70,6 +70,19 @@ layout(set = 3, binding = 0) uniform TimeObject {
 } time;
 
 layout (set = 4, binding = 0) uniform sampler3D lightGrid;
+
+layout (set = 5, binding = 0) uniform UIParamOvject {
+    float farclip;
+    float transmittance_limit;
+
+    float tiling_freq;
+
+    float animate_speed;
+    vec3 animate_dir;
+
+    bool enable_godray;
+    float godray_exposure;
+} uiParam;
 
 // structs
 struct VoxelCloudModelingData {
@@ -174,13 +187,13 @@ VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float in
 float GetUprezzedVoxelCloudDensity(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 inSamplePos, float inDimensionalProfile, float inType, float inDensityScale, float inMipLevel, bool inHFDetails)
 {
     // Step1-Apply wind offset
-    inSamplePos -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * CLOUD_ANIMATE_SPEED * time.totalTime;
+    inSamplePos -= vec3(CLOUD_WIND_OFFSET.x, CLOUD_WIND_OFFSET.y, 0.0) * uiParam.animate_speed * time.totalTime;
 
     // Step2-Sample noise
     float mipmap_level = GetVoxelCloudMipLevel(inRaymarchInfo, inMipLevel);
     // R��Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
 
-    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * 0.05); // TODO: check freq
+    vec4 noise = texture(cloudDetailNoiseTexture, inSamplePos * uiParam.tiling_freq); // TODO: check freq
 
     // Step3-Define Detail Erosion
     // wispy
@@ -429,8 +442,8 @@ void RaymarchVoxelClouds(Ray ray, vec3 lightDir, inout CloudRenderingPixelData i
 
     float cos_angle = dot(ray.mDirection, lightDir);
 
-    while (ioPixelData.mTransmittance > VIEW_RAY_TRANSIMITTANCE_LIMIT &&
-         raymarch_info.mDistance < min(MAX_RAYMARCHING_DISTANCE, raymarch_info.mLimit.y)) {
+    while (ioPixelData.mTransmittance > uiParam.transmittance_limit &&
+         raymarch_info.mDistance < min(uiParam.farclip, raymarch_info.mLimit.y)) {
          vec3 sample_position = ray.mOrigin + ray.mDirection * raymarch_info.mDistance;
          vec3 sample_coord = GetSampleCoord(sample_position);
 

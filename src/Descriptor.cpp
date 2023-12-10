@@ -9,6 +9,7 @@ VkDescriptorSetLayout Descriptor::imageStorageDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::computeImagesDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::computeNubisCubedImagesDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::sceneDescriptorSetLayout;
+VkDescriptorSetLayout Descriptor::uiParamDescriptorSetLayout;
 
 VkDescriptorPool Descriptor::descriptorPool;
 
@@ -21,6 +22,7 @@ VkDescriptorSet Descriptor::cameraDescriptorSet;
 VkDescriptorSet Descriptor::sceneDescriptorSet;
 VkDescriptorSet Descriptor::lightGridDescriptorSet;
 VkDescriptorSet Descriptor::lightGridSamplerDescriptorSet;
+VkDescriptorSet Descriptor::uiParamDescriptorSet;
 
 void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
@@ -151,6 +153,28 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logic
     }
 }
 
+void Descriptor::CreateUIParamDescriptorSetLayout(VkDevice logicalDevice) {
+    // Describe the binding of the descriptor set layout
+    VkDescriptorSetLayoutBinding curLayoutBinding = {};
+    curLayoutBinding.binding = 0;
+    curLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    curLayoutBinding.descriptorCount = 1;
+    curLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    curLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { curLayoutBinding };
+
+    // Create the descriptor set layout
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &uiParamDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor set layout: UI");
+    }
+}
+
 void Descriptor::CreateCameraDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
     VkDescriptorSetLayoutBinding curLayoutBinding = {};
@@ -232,6 +256,9 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 
         // Time(Scene)Buffer
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, 
+
+        // UI Control Buffer
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 
         // Compute nubis cubed images: modelingNVDF, fieldNVDF, cloudDetailNoise
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
@@ -570,11 +597,49 @@ void Descriptor::CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene) 
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
+void Descriptor::CreateUIParamDescriptorSet(VkDevice logicalDevice, VkBuffer& uiControlBufferObject, VkDeviceSize size) {
+    // Describe the desciptor set
+	VkDescriptorSetLayout layouts[] = { uiParamDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	// Allocate descriptor sets
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &uiParamDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate descriptor set");
+	}
+
+	// Configure the descriptors to refer to buffers
+	VkDescriptorBufferInfo uiParamBufferInfo = {};
+	uiParamBufferInfo.buffer = uiControlBufferObject;
+	uiParamBufferInfo.offset = 0;
+	uiParamBufferInfo.range = size;
+
+	std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = uiParamDescriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = &uiParamBufferInfo;
+	descriptorWrites[0].pImageInfo = nullptr;
+	descriptorWrites[0].pTexelBufferView = nullptr;
+
+	// Update descriptor sets
+	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
 void Descriptor::CleanUp(VkDevice logicalDevice) {
     vkDestroyDescriptorSetLayout(logicalDevice, cameraDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, imageStorageDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, imageDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, sceneDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, computeImagesDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, computeNubisCubedImagesDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, uiParamDescriptorSetLayout, nullptr);
 
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 }

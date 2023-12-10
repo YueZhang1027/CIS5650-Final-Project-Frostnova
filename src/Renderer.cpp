@@ -22,20 +22,24 @@ Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Sce
     CreateRenderPass();
     CreateOffscreenRenderPass();
 
+//#if USE_UI
+    CreateUI();
+//#endif
+
     // TODO: custom pipeline creation here
     CreateFrameResources();
     CreateModels();
     CreateDescriptors();
     CreatePipelines();
 
-#if USE_UI
-    CreateUI();
-#endif
-
     commandBuffers.resize(swapChain->GetCount());
     //RecordCommandBuffers();
     RecordComputeCommandBuffer();
     //RecordOffscreenCommandBuffers();
+}
+
+void Renderer::UpdateUIBuffer() {
+    memcpy(uiControlBuffer.mappedData, &uiControlBufferObject, sizeof(UIControlBufferObject));
 }
 
 void Renderer::CreateCommandPools() {
@@ -252,6 +256,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateComputeImagesDescriptorSetLayout(logicalDevice);
     Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(logicalDevice);
     Descriptor::CreateSceneDescriptorSetLayout(logicalDevice);
+    Descriptor::CreateUIParamDescriptorSetLayout(logicalDevice);
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
@@ -277,6 +282,9 @@ void Renderer::CreateDescriptors() {
 
     // Scene (Time) 
     Descriptor::CreateSceneDescriptorSet(logicalDevice, scene);
+
+    // UI
+    Descriptor::CreateUIParamDescriptorSet(logicalDevice, uiControlBuffer.buffer, sizeof(UIControlBufferObject));
 }
 
 void Renderer::CreatePipelines() {
@@ -517,7 +525,7 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowSize(ImVec2(400.f, 300.f));
+    ImGui::SetNextWindowSize(ImVec2(500.f, 400.f));
     ImGui::Begin("Control Panel", 0, ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove);
     ImGui::SetWindowFontScale(1);
 
@@ -525,17 +533,25 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 
     ImGui::Separator();
     ImGui::Text("Cloud Animation Parameter");
-    ImGui::SliderFloat("Cloud Floating Speed", &uiControlBufferObject.animate_speed, 0.0f, 1.0f);
-    // ImGui::SliderFloat3("Cloud Floating Direction", &uiControlBufferObject.animate_dir, -1, +1))
+    ImGui::SliderFloat("Floating Speed", &uiControlBufferObject.animate_speed, 0.0f, 100.0f);
+    // ImGui::SliderFloat3("Floating Offset", &uiControlBufferObject.animate_offset[0], -1000.0f, 1000.0f);
 
     ImGui::Separator();
     ImGui::Text("Ray Marching Parameter");
-    ImGui::SliderFloat("Max Ray Marching Distance", &uiControlBufferObject.farclip, 0.0f, 5000.0f);
-    ImGui::SliderFloat("Ray Marching Transmittance Limit", &uiControlBufferObject.transmittance_limit, 0.0f, 1.0f);
+    ImGui::SliderFloat("Max Distance", &uiControlBufferObject.farclip, 0.0f, 5000.0f);
+    ImGui::SliderFloat("Transmittance Limit", &uiControlBufferObject.transmittance_limit, 0.0f, 1.0f);
+
+    ImGui::Separator();
+    ImGui::Text("Cloud Sample Parameter");
+    ImGui::SliderFloat("Tiling Frequency", &uiControlBufferObject.tiling_freq, 0.01f, 0.1f);
 
     ImGui::Separator();
     ImGui::Text("Post Processing Parameter");
+    ImGui::Checkbox("Enable Godray", &uiControlBufferObject.enable_godray);
     ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.0f, 1.0f);
+
+    ImGui::Separator();
+    ImGui::Text("Envionment Parameter");
     
     ImGui::End();
 
@@ -666,6 +682,7 @@ void Renderer::UpdateUniformBuffers() {
     scene->UpdateTime(); // time
     camera->UpdatePrevBuffer(); // camera prev
     camera->UpdatePixelOffset(); // camera pixel offset
+    UpdateUIBuffer(); // ui control parameters
 }
 
 void Renderer::Frame() {
@@ -796,4 +813,8 @@ void Renderer::CreateUI() {
     init_info.DescriptorPool = uiDescriptorPool;
 
     ImGui_ImplVulkan_Init(&init_info, renderPass);
+
+    // Create UI buffer object
+    uiControlBuffer.MapMemory(device, sizeof(UIControlBufferObject));
+    memcpy(uiControlBuffer.mappedData, &uiControlBufferObject, sizeof(UIControlBufferObject));
 }

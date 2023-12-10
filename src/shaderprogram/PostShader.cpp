@@ -121,7 +121,8 @@ void PostShader::CreateShaderProgram() {
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { 
         Descriptor::imageDescriptorSetLayout, 
         Descriptor::cameraDescriptorSetLayout,
-        Descriptor::sceneDescriptorSetLayout
+        Descriptor::sceneDescriptorSetLayout,
+        Descriptor::uiParamDescriptorSetLayout
     };
 
     // Pipeline layout: used to specify uniform values
@@ -169,4 +170,5 @@ void PostShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &Descriptor::frameDescriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &Descriptor::uiParamDescriptorSet, 0, nullptr);
 }

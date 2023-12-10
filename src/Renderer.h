@@ -16,10 +16,15 @@ struct UIControlBufferObject {
     float farclip = 500.f;
     float transmittance_limit = 0.01f;
 
-    float animate_speed = 10.f;
-    glm::vec3 animate_dir = glm::normalize(glm::vec3(1, 1, 0));
+    float tiling_freq = 0.05f;
 
+    float animate_speed = 10.f;
+    glm::vec3 animate_offset = glm::vec3(0.1, 0.1, 0);
+
+    bool enable_godray = true;
     float godray_exposure = 0.1f;
+
+    // TODO: more lighting environment
 };
 
 class Renderer {
@@ -31,6 +36,7 @@ public:
     void CreateUI();
     ImGuiIO* GetIO() const { return io; }
     bool MouseOverImGuiWindow() const { return mouseOverImGuiWindow; }
+    void UpdateUIBuffer();
 
     void CreateCommandPools();
 
@@ -112,4 +118,5 @@ private:
     bool mouseOverImGuiWindow = false;
 
     UIControlBufferObject uiControlBufferObject;
+    UniformBuffer uiControlBuffer;
 };
