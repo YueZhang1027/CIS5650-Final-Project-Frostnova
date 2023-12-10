@@ -65,6 +65,8 @@ layout(set = 3, binding = 0) uniform TimeObject {
     float totalTime;
 } time;
 
+layout (set = 5, binding = 0) uniform sampler3D lightGrid;
+
 // structs
 struct VoxelCloudModelingData {
     float mDimensionalProfile;
@@ -282,6 +284,31 @@ float HG(float cos_angle, float g) {
 void IntegrateCloudSampleData(VoxelCloudDensitySamples sampleData, float cloud_distance, CloudRenderingRaymarchInfo raymarch_info, inout CloudRenderingPixelData ioPixelData, bool inHFDetails) {
     ioPixelData.mDensity += sampleData.mFull;
     float ms_volume = sampleData.mProfile;
+    pos += lightDir * inRaymarchInfo.mStepSize;
+    sampleCoord = GetSampleCoord(pos);
+    totalDensity += texture(lightGrid, sampleCoord).r;
+    return totalDensity;
+}
+
+float GetDensityLowLOD(vec3 sampleCoord) {
+    return texture(lightGrid, sampleCoord).g;
+}
+
+float GetVoxelCloudDistance(vec3 inSamplePosition) {
+    vec3 sampled_color = texture(fieldNVDFTexture, inSamplePosition).rgb;
+    float result = dot(sampled_color, vec3(1.0, 0.03529415, 0.00069204));
+    return ValueRemap(result, 0, 1, -256, 4096);
+}
+
+void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data,
+                    VoxelCloudDensitySamples sampleData, 
+                    vec3 samplePosition, vec3 sampleCoord, vec3 lightDir, float cos_angle, 
+                    inout CloudRenderingPixelData ioPixelData) 
+{
+    float profile = sampleData.mProfile;
+
+    // Cloud distance
+    float cloud_distance = GetVoxelCloudDistance(samplePosition);
 
     // Calculate Density to Sun
     float density_to_sun;
@@ -482,10 +509,14 @@ void main() {
     
     float accumDensity = ioPixelData.mDensity;
     float transmittance = ioPixelData.mTransmittance;
-    // accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
-    vec3 cloudColor = (10.f * vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)) + 0.1f * bgColor * exp(-transmittance)); 
-    
-    vec4 finalColor = vec4(mix(bgColor, cloudColor, accumDensity), 1.0f);
-    finalColor.a *= max(1.0 - accumDensity, 0.0);
+
+
+    accumDensity *= smoothstep(0, 1, min(1, ValueRemap(ray.mDirection.y, 0, 0.1, 0, 1)));
+   // vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
+
+    vec3 cloudColor = ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
+     
+    vec4 finalColor = vec4(mix(bgColor, cloudColor, (1 - ioPixelData.mAlpha)), 1.0f);
+
     imageStore(targetImage, pixel, finalColor);
 }

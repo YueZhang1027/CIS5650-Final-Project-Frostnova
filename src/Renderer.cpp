@@ -261,6 +261,7 @@ void Renderer::CreateDescriptors() {
 
     // Storage image - Light Grid
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, lightGridTexture, Descriptor::lightGridDescriptorSet);
+    Descriptor::CreateImageDescriptorSet(logicalDevice, lightGridTexture, Descriptor::lightGridSamplerDescriptorSet);
     
     // Image - frame
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
