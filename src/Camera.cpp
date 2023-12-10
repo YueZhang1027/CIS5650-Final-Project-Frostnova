@@ -21,11 +21,11 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
 
     offset = glm::vec3(0.f);
 
-    glm::vec3 eye = glm::vec3(0.0f, 30.0f, 450.f);
-    cameraBufferObject.viewMatrix = glm::lookAt(eye, eye + lookAtDir, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 eye = glm::vec3(0.0f, 450.0f, 30.f);
+    cameraBufferObject.viewMatrix = glm::lookAt(eye, target, glm::vec3(0.0f, 0.0f, 1.0f));
     cameraBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
     cameraBufferObject.projectionMatrix[1][1] *= -1; // y-coordinate is flipped
-    cameraBufferObject.cameraPosition = glm::vec4(cameraBufferObject.viewMatrix[3][0], cameraBufferObject.viewMatrix[3][1], cameraBufferObject.viewMatrix[3][2], 1.0f);
+    cameraBufferObject.cameraPosition = glm::vec4(eye, 1.f);
 
     // phi, theta
 
@@ -44,6 +44,8 @@ Camera::Camera(Device* device, float aspectRatio) : device(device) {
 
     cameraParamBuffer.MapMemory(device, sizeof(CameraParamBufferObject));
     memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
+
+    UpdateOrbit(0.f, 0.f, 0.f);
 }
 
 VkBuffer Camera::GetPrevBuffer() const {
