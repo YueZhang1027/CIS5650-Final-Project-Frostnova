@@ -49,6 +49,10 @@ namespace Descriptor {
     extern VkDescriptorSet computeNubisCubedImagesDescriptorSet;
     extern VkDescriptorSet lightGridDescriptorSet;
     extern VkDescriptorSet lightGridSamplerDescriptorSet;
+    extern VkDescriptorSet nearCloudColorDescriptorSet;
+    extern VkDescriptorSet nearCloudColorSamplerDescriptorSet;
+    extern VkDescriptorSet nearCloudDensityDescriptorSet;
+    extern VkDescriptorSet nearCloudDensitySamplerDescriptorSet;
     extern VkDescriptorSet uiParamDescriptorSet;
 
     extern VkDescriptorSet cameraDescriptorSet;

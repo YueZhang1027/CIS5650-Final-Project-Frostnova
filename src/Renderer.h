@@ -77,6 +77,8 @@ private:
     ComputeShader* computeShader;
     ComputeNubisCubedShader* computeNubisCubedShader;
     ComputeLightGridShader* computeLightGridShader;
+    ComputeNearShader* computeNearShader;
+    ComputeFarShader* computeFarShader;
 
     // --- Frame resources ---
     std::vector<VkImageView> imageViews;
@@ -88,6 +90,9 @@ private:
     Texture* depthTexture;
     Texture* imageCurTexture;
     Texture* imagePrevTexture;
+
+    Texture* nearCloudColorTexture;
+    Texture* nearCloudDensityTexture;
 
     Texture* hiResCloudShapeTexture;
     Texture* lowResCloudShapeTexture;

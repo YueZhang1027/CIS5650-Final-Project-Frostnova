@@ -260,13 +260,19 @@ void Renderer::CreateDescriptors() {
 
     Descriptor::CreateDescriptorPool(logicalDevice, scene);
 
-    // Storage image - cur, prev
+    // Storage image - cur, prev, near cloud
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::imageCurDescriptorSet);
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, imagePrevTexture, Descriptor::imagePrevDescriptorSet);
 
-    // Storage image - Light Grid
+    // Storage and sampling image - Light Grid
     Descriptor::CreateImageStorageDescriptorSet(logicalDevice, lightGridTexture, Descriptor::lightGridDescriptorSet);
     Descriptor::CreateImageDescriptorSet(logicalDevice, lightGridTexture, Descriptor::lightGridSamplerDescriptorSet);
+
+    // Storage and sampling image -  Near cloud
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, nearCloudColorTexture, Descriptor::nearCloudColorDescriptorSet);
+    Descriptor::CreateImageDescriptorSet(logicalDevice, nearCloudColorTexture, Descriptor::nearCloudColorSamplerDescriptorSet);
+    Descriptor::CreateImageStorageDescriptorSet(logicalDevice, nearCloudDensityTexture, Descriptor::nearCloudDensityDescriptorSet);
+    Descriptor::CreateImageDescriptorSet(logicalDevice, nearCloudDensityTexture, Descriptor::nearCloudDensitySamplerDescriptorSet);
     
     // Image - frame
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
@@ -293,6 +299,8 @@ void Renderer::CreatePipelines() {
     computeShader = new ComputeShader(device, swapChain, &renderPass);
     computeNubisCubedShader = new ComputeNubisCubedShader(device, swapChain, &renderPass);
     computeLightGridShader = new ComputeLightGridShader(device, swapChain, &renderPass);
+    computeNearShader = new ComputeNearShader(device, swapChain, &renderPass);
+    computeFarShader = new ComputeFarShader(device, swapChain, &renderPass);
 }
 
 void Renderer::CreateFrameResources() {
@@ -318,6 +326,10 @@ void Renderer::CreateFrameResources() {
 
     // Light grid 
     lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(256, 256, 32));
+
+    // Near Cloud 
+    nearCloudColorTexture = Image::CreateStorageTextureHalfRes(device, graphicsCommandPool, swapChain->GetVkExtent());
+    nearCloudDensityTexture = Image::CreateStorageTextureHalfRes(device, graphicsCommandPool, swapChain->GetVkExtent());
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---
@@ -395,6 +407,12 @@ void Renderer::DestroyFrameResources() {
     delete modelingDataTexture;
     cloudDetailNoiseTexture->CleanUp(logicalDevice);
 	delete cloudDetailNoiseTexture;
+    lightGridTexture->CleanUp(logicalDevice);
+    delete lightGridTexture;
+    nearCloudColorTexture->CleanUp(logicalDevice);
+    delete nearCloudColorTexture;
+    nearCloudDensityTexture->CleanUp(logicalDevice);
+    delete nearCloudDensityTexture;
 
     for (size_t i = 0; i < framebuffers.size(); i++) {
         vkDestroyFramebuffer(logicalDevice, framebuffers[i], nullptr);
@@ -461,13 +479,27 @@ void Renderer::RecordComputeCommandBuffer() {
 	 	    static_cast<uint32_t>((lightVoxelDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
 	 	    static_cast<uint32_t>((lightVoxelDims.z)));
 
+        computeNearShader->BindShaderProgram(computeCommandBuffers[i]);
+        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsPartial.x / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+
+        computeFarShader->BindShaderProgram(computeCommandBuffers[i]);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+
+/*
         computeNubisCubedShader->BindShaderProgram(computeCommandBuffers[i]);
         const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
         vkCmdDispatch(computeCommandBuffers[i],
             static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
             1);
-
+*/
         // ~ End recording ~
         if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to record compute command buffer");

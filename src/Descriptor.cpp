@@ -22,6 +22,10 @@ VkDescriptorSet Descriptor::cameraDescriptorSet;
 VkDescriptorSet Descriptor::sceneDescriptorSet;
 VkDescriptorSet Descriptor::lightGridDescriptorSet;
 VkDescriptorSet Descriptor::lightGridSamplerDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudColorDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudColorSamplerDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudDensityDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudDensitySamplerDescriptorSet;
 VkDescriptorSet Descriptor::uiParamDescriptorSet;
 
 void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
@@ -262,6 +266,12 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 
         // Compute nubis cubed images: modelingNVDF, fieldNVDF, cloudDetailNoise
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+
+        // Near Cloud
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
     };
 
     VkDescriptorPoolCreateInfo poolInfo = {};
