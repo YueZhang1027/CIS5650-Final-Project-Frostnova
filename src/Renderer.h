@@ -41,7 +41,7 @@ public:
     void CreateCommandPools();
 
     void CreateRenderPass();
-    void CreateOffscreenRenderPass();
+    // void CreateOffscreenRenderPass();
 
     void CreateModels();
     void CreateDescriptors();
@@ -53,7 +53,7 @@ public:
 
     void RecordCommandBuffer(uint32_t index);
     void RecordCommandBuffers();
-    void RecordOffscreenCommandBuffers();
+    // void RecordOffscreenCommandBuffers();
     void RecordComputeCommandBuffer();
 
     void UpdateUniformBuffers();
@@ -73,8 +73,8 @@ private:
 
     // --- Shader programs ---
     PostShader* backgroundShader;
-    ReprojectShader* reprojectShader;
-    ComputeShader* computeShader;
+    // ReprojectShader* reprojectShader;
+    // ComputeShader* computeShader;
     ComputeNubisCubedShader* computeNubisCubedShader;
     ComputeLightGridShader* computeLightGridShader;
     ComputeNearShader* computeNearShader;
@@ -84,20 +84,21 @@ private:
     std::vector<VkImageView> imageViews;
     std::vector<VkFramebuffer> framebuffers;
 
-    std::vector<Texture*> offscreenTextures;
-    std::vector<VkFramebuffer> offscreenFramebuffers;
+    // std::vector<Texture*> offscreenTextures;
+    // std::vector<VkFramebuffer> offscreenFramebuffers;
 
     Texture* depthTexture;
     Texture* imageCurTexture;
-    Texture* imagePrevTexture;
+    // Texture* imagePrevTexture;
 
     Texture* nearCloudColorTexture;
     Texture* nearCloudDensityTexture;
 
-    Texture* hiResCloudShapeTexture;
-    Texture* lowResCloudShapeTexture;
-    Texture* weatherMapTexture;
-    Texture* curlNoiseTexture;
+    // Texture* hiResCloudShapeTexture;
+    // Texture* lowResCloudShapeTexture;
+    // Texture* weatherMapTexture;
+    // Texture* curlNoiseTexture;
+
 
     Texture* modelingDataTexture;
     // Texture* fieldDataTexture;
@@ -110,9 +111,9 @@ private:
 
     // --- Command Buffers ---
     std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkCommandBuffer> computeCommandBuffers;
-    std::vector<VkCommandBuffer> offscreenCommandBuffers;
-    bool swapBackground = false;
+    // std::vector<VkCommandBuffer> computeCommandBuffers;
+    VkCommandBuffer computeCommandBuffer;
+    // std::vector<VkCommandBuffer> offscreenCommandBuffers;
 
     // --- UI ---
     GLFWwindow* window;
