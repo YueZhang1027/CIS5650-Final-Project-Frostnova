@@ -6,7 +6,7 @@
 
 #include "Descriptor.h"
 
-#define USE_UI 0
+#define USE_UI 1
 
 static constexpr unsigned int WORKGROUP_SIZE = 32;
 
@@ -512,11 +512,32 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 #if USE_UI
     // UI
     mouseOverImGuiWindow = io->WantCaptureMouse;
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::ShowDemoWindow();
+    ImGui::SetNextWindowSize(ImVec2(400.f, 300.f));
+    ImGui::Begin("Control Panel", 0, ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove);
+    ImGui::SetWindowFontScale(1);
+
+    ImGui::Text("Current Frame Rate: %.1f", ImGui::GetIO().Framerate);
+
+    ImGui::Separator();
+    ImGui::Text("Cloud Animation Parameter");
+    ImGui::SliderFloat("Cloud Floating Speed", &uiControlBufferObject.animate_speed, 0.0f, 1.0f);
+    // ImGui::SliderFloat3("Cloud Floating Direction", &uiControlBufferObject.animate_dir, -1, +1))
+
+    ImGui::Separator();
+    ImGui::Text("Ray Marching Parameter");
+    ImGui::SliderFloat("Max Ray Marching Distance", &uiControlBufferObject.farclip, 0.0f, 5000.0f);
+    ImGui::SliderFloat("Ray Marching Transmittance Limit", &uiControlBufferObject.transmittance_limit, 0.0f, 1.0f);
+
+    ImGui::Separator();
+    ImGui::Text("Post Processing Parameter");
+    ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.0f, 1.0f);
+    
+    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[index]);
@@ -576,19 +597,6 @@ void Renderer::RecordCommandBuffers() {
         // Bind the graphics pipeline
         backgroundShader->BindShaderProgram(commandBuffers[i]);
         backgroundQuad->EnqueueDrawCommands(commandBuffers[i]);
-
-#if USE_UI
-        // UI
-        mouseOverImGuiWindow = io->WantCaptureMouse;
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        ImGui::ShowDemoWindow();
-
-        ImGui::Render();
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
-#endif
 
         //// End render pass
         vkCmdEndRenderPass(commandBuffers[i]);
