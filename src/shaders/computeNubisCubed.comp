@@ -1,6 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+//#define HIGHLIGHT_SUN 
 #define WORKGROUP_SIZE 32
 
 #define PI 3.14159265
@@ -95,6 +96,9 @@ struct CloudRenderingPixelData {
     float mTransmittance;
     float mAlpha;
     vec3 mCloudColor;
+    vec3 mSkyColor;
+    vec3 mSunColor;
+    float mNight;
 };
 
 struct Ray {
@@ -316,29 +320,32 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     float attenuation_probability = max(Remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25) , primary_attenuation);
      
     // In-scattering 
-    float depth_probability = mix(0.05 + pow(density_Lod, Remap(height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/0.5, 0, 1));
-    float vertical_probability = pow(Remap(height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8);
+    float depth_probability = mix(0.05 + pow(density_Lod, Remap(0.5, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/0.5, 0, 1));
+    float vertical_probability = pow(Remap(0.5, 0.07, 0.14, 0.1, 1.0 ), 0.8);
     float in_scatter_probability = clamp(depth_probability * vertical_probability, 0, 1);
 
     // Phase probability
     float phase_probability = max(HG(cos_angle, eccentricity), silver_intensity * HG(cos_angle, 0.99 - silver_spread));
 
-    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;
+    float light_energy = attenuation_probability * phase_probability * brightness;
     //float light_energy = density_to_sun;
 
     light_energy = exp(-light_energy * 5);
 
     vec3 white = vec3(1, 1, 1);
+    vec3 _colB = mix(ioPixelData.mSkyColor, vec3(0.23f, 0.36f, 0.47f), clamp(lightDir.y + 0.5, 0, 1));
     vec3 _colA = vec3(1.0, 0.87, 0.65);
-    vec3 _colB = vec3(0.23f, 0.36f, 0.47f);
+
     float _colorOffset1 = 0.16;
-    float _colorOffset2 = 2.6;
-    float _darkness = 0.5;
+    float _colorOffset2 = 12.6;
 
     vec3 cloudColor = mix(_colA, white, clamp(light_energy * _colorOffset1, 0, 1));
-    cloudColor = mix(_colB, cloudColor, clamp(pow(light_energy * _colorOffset2, 3), 0, 1));
-    cloudColor = light_energy * cloudColor;
-    
+    cloudColor = mix(_colB, cloudColor, clamp(pow(light_energy * _colorOffset2, 3), 0, 1)); 
+    if(ioPixelData.mDensity <= 1.0)
+    {
+        cloudColor = (1 - ambient_scattering) * cloudColor + ambient_scattering * _colB;
+    }
+  
     ioPixelData.mTransmittance += sampleData.mFull * light_energy * ioPixelData.mAlpha; 
     ioPixelData.mCloudColor += sampleData.mFull * cloudColor * ioPixelData.mAlpha;
     ioPixelData.mAlpha *= exp(-sampleData.mFull * 1.0);  
@@ -445,11 +452,7 @@ void RaymarchVoxelClouds(Ray ray, vec3 lightDir, inout CloudRenderingPixelData i
                  if (voxel_cloud_sample_data.mProfile > 0.0f) {		         
                      ioPixelData.mDensity += voxel_cloud_sample_data.mFull;
                      IntegrateLightEnergy(raymarch_info, modeling_data, voxel_cloud_sample_data, 
-                         sample_position, sample_coord, lightDir, cos_angle, ioPixelData);
-                     if (ioPixelData.mDensity > 1.0f) {
-                        ioPixelData.mDensity = 1.0f;
-                        break;
-                     }
+                         sample_position, sample_coord, lightDir, cos_angle, ioPixelData);                   
 		         }
              }
          }
@@ -496,10 +499,10 @@ float rayleighZenithLength = 3795;
 float refractiveIndex = 1.000128;
 float sunAngularDiameterDegrees = 0.032;
 float sunIntensityFactor = 1024;
-float sunIntensityFalloffSteepness = 1.4;
+float sunIntensityFalloffSteepness = 6.4;
 float tonemapWeighting = 19.50;
 float turbidity = 12.575;
-vec3 UP = vec3(0.0, 1.0, 0.0);
+vec3 UP = vec3(0.0, 0.0, -1.0);
 
 float noise(vec3 coord)
 {
@@ -555,12 +558,12 @@ vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
 { 
     //star
     float intensity = 0.0;
-    if (sunDir.y < 0.0)
+    if (sunDir.z > 0.0)
     {
         intensity = 1.0;
-        if (sunDir.y > -0.75)
+        if (sunDir.z < 0.75)
         {
-            intensity = mix(0.0, 1.0, -sunDir.y);
+            intensity = mix(0.0, 1.0, sunDir.z);
         }
         vec3 coordFloor = floor(rayDir * 700 + time.totalTime * 0.1);
         float starVal = noise(coordFloor) * intensity * 0.8;
@@ -569,7 +572,7 @@ vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
     return vec3(0);
 }
 
-vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
+void GetSkyColor(vec3 rayDir, vec3 sunPosition, inout CloudRenderingPixelData ioPixelData)
 {
     // Rayleigh coefficient
 	float sunfade = 1.0 - clamp(1.0 - exp((sunPosition.y / 450000.0)), 0.0, 1.0);
@@ -601,8 +604,10 @@ vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
 	float sunAngularDiameterCos = cos(sunAngularDiameterDegrees);
 	float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
 	vec3 L0 = vec3(0.1) * Fex;
-    float sunHDR = mix(19000.0, 1, cloudDensity);
-	L0 += sunE * sunHDR * Fex * sundisk * (1.0 - cloudDensity);
+    float sunHDR = 1900.0;
+	L0 += sunE * sunHDR * Fex * sundisk;
+    ioPixelData.mSunColor = sunE * Fex;
+
 	vec3 texColor = Lin + L0;
 	texColor *= 0.04;
 	texColor += vec3(0.0, 0.001, 0.0025) * 0.3;
@@ -613,13 +618,8 @@ vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
 	vec3 color = curr * whiteScale;
 	vec3 retColor = pow(color, vec3(1.0 / (1.2 + (1.2 * sunfade))));
 
-    // Star
-    retColor += GetStarColor(rayDir, sunDirection) * (1.0 - cloudDensity);
-
-    vec4 result;
-    result.xyz = retColor;
-    result.a = mix(1, 40, clamp(sunDirection.y, 0, 1));
-    return result;
+    ioPixelData.mSkyColor = retColor;
+    ioPixelData.mNight = mix(0.01, 1, clamp(-sunDirection.z, 0, 1));
 }
 
 //--------------------------------------------------------
@@ -643,26 +643,36 @@ void main() {
     Ray ray = GenerateRay(uv);
 
     CloudRenderingPixelData ioPixelData;
-    ioPixelData.mDensity = 0.0;
+    ioPixelData.mDensity = 0.0f;
     ioPixelData.mTransmittance = 1.0;
     ioPixelData.mAlpha = 1.0;
     ioPixelData.mCloudColor = vec3(0);
-
-	// Raymarch
-	//RaymarchVoxelCloudsTest(ray, sunDir, ioPixelData);
-    RaymarchVoxelClouds(ray, sunDir, ioPixelData);
+    ioPixelData.mSunColor = vec3(0);
+    ioPixelData.mSkyColor = vec3(0);
 
     // Background color
-    vec3 bgColor = vec3(0.23f, 0.36f, 0.47f);
-    
-    float accumDensity = ioPixelData.mDensity;
+    GetSkyColor(ray.mDirection, sunPos, ioPixelData);
+
+	// Raymarch
+    RaymarchVoxelClouds(ray, sunDir, ioPixelData);    
     float transmittance = ioPixelData.mTransmittance;
+    float cloudDensity = clamp(ioPixelData.mDensity, 0, 1);
 
-    vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
-
-    //vec3 cloudColor = ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
+    vec3 cloudColor = ioPixelData.mNight * ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
+  
+    // Star
+    vec3 bgColor = ioPixelData.mSkyColor + GetStarColor(ray.mDirection, sunDir) * (1.0 - cloudDensity);
      
     vec4 finalColor = vec4(mix(bgColor, cloudColor, (1 - ioPixelData.mAlpha)), 1.0f);
+
+#ifdef HIGHLIGHT_SUN
+    //Highlight Sun for Debug
+    float angleFromSun = acos(clamp(dot(ray.mDirection, sunDir), -0.999999, 0.999999)) * 180.0 / PI;
+    if(angleFromSun < 1.5)
+    {
+        finalColor = vec4(1, 0, 0, 1);
+    }
+#endif
 
     imageStore(targetImage, pixel, finalColor);
 }

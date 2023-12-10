@@ -37,13 +37,13 @@ vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
 
 vec4 GodRay()
 {
-    if(time.sunPositionY < 0)
+    if(time.sunPositionZ > 0)
     {
         return vec4(0);
     }
 
     float decay = 0.96;
-    float exposure = 0.09;
+    float exposure = 0.08;
     float density = 0.2;
     float weight = 0.58767;
 
@@ -73,7 +73,7 @@ vec4 GodRay()
 
 void main() {
     vec4 sceneCol = texture(texColor, fragTexCoord);
-    // sceneCol += GodRay() * 0.09;
+    sceneCol += GodRay() * 0.08;
 
     vec3 col = sceneCol.xyz;
     float whitepoint = 1.0;

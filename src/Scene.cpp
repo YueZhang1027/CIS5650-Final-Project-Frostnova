@@ -1,7 +1,7 @@
 #include "Scene.h"
 #include "BufferUtils.h"
 
-const float ONE_DAY = 40.0f;
+const float ONE_DAY = 30.0f;
 const float PI = 3.14159265f;
 const float SUN_DISTANCE = 400000.0f;
 
@@ -21,11 +21,11 @@ void Scene::UpdateTime() {
 
     float dayTime = glm::mod(time.totalTime, ONE_DAY);
     float theta = dayTime * 2.0f * PI / ONE_DAY;
-    float phi = 0;
+    float phi = 45;
 
-    time.sunPositionX = SUN_DISTANCE * cos(theta) * cos(phi);
-    time.sunPositionY = SUN_DISTANCE * sin(theta);
-    time.sunPositionZ = SUN_DISTANCE * cos(theta) * sin(phi);
+    time.sunPositionY = SUN_DISTANCE * cos(theta) * cos(phi);
+    time.sunPositionZ = -SUN_DISTANCE * sin(theta);
+    time.sunPositionX = -SUN_DISTANCE * cos(theta) * sin(phi);
     
     memcpy(mappedData, &time, sizeof(Time));
 }
