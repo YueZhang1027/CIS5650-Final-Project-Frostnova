@@ -22,7 +22,7 @@ void ComputeNubisCubedShader::CreateShaderProgram() {
 		Descriptor::cameraDescriptorSetLayout,
 		Descriptor::computeNubisCubedImagesDescriptorSetLayout,
 		Descriptor::sceneDescriptorSetLayout,
-		Descriptor::imageStorageDescriptorSetLayout
+		Descriptor::imageDescriptorSetLayout
 	};
 
 	// Create pipeline layout
@@ -63,7 +63,7 @@ void ComputeNubisCubedShader::BindShaderProgram(VkCommandBuffer& commandBuffer) 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &Descriptor::computeNubisCubedImagesDescriptorSet, 0, nullptr);
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 4, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 5, 1, &Descriptor::lightGridDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 5, 1, &Descriptor::lightGridSamplerDescriptorSet, 0, nullptr);
 
 	swapBuffers = !swapBuffers;
 }
