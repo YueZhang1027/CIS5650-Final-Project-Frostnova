@@ -97,7 +97,7 @@ struct CloudRenderingPixelData {
     float mAlpha;
     vec3 mCloudColor;
     vec3 mSkyColor;
-    vec3 mSunColor;
+    float mSunDisk;
     float mNight;
 };
 
@@ -606,7 +606,7 @@ void GetSkyColor(vec3 rayDir, vec3 sunPosition, inout CloudRenderingPixelData io
 	vec3 L0 = vec3(0.1) * Fex;
     float sunHDR = 1900.0;
 	L0 += sunE * sunHDR * Fex * sundisk;
-    ioPixelData.mSunColor = sunE * Fex;
+    ioPixelData.mSunDisk = sundisk;
 
 	vec3 texColor = Lin + L0;
 	texColor *= 0.04;
@@ -647,7 +647,7 @@ void main() {
     ioPixelData.mTransmittance = 1.0;
     ioPixelData.mAlpha = 1.0;
     ioPixelData.mCloudColor = vec3(0);
-    ioPixelData.mSunColor = vec3(0);
+    ioPixelData.mSunDisk = 0.0f;
     ioPixelData.mSkyColor = vec3(0);
 
     // Background color
@@ -662,7 +662,10 @@ void main() {
   
     // Star
     vec3 bgColor = ioPixelData.mSkyColor + GetStarColor(ray.mDirection, sunDir) * (1.0 - cloudDensity);
-     
+    if(ioPixelData.mSunDisk > 0 && cloudDensity > 0)
+    {
+        bgColor = clamp(bgColor, 0, 0.5) * (1.0 - cloudDensity);
+    }
     vec4 finalColor = vec4(mix(bgColor, cloudColor, (1 - ioPixelData.mAlpha)), 1.0f);
 
 #ifdef HIGHLIGHT_SUN
