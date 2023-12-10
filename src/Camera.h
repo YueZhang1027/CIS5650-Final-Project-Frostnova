@@ -65,7 +65,6 @@ public:
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePosition(Direction dir);
-    void UpdateAngle(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
 };

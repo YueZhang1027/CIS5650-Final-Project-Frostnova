@@ -44,10 +44,10 @@ namespace {
                 camera->UpdatePosition(Direction::DOWN);
                 break;
             case GLFW_KEY_LEFT:
-                camera->UpdateAngle(Direction::LEFT);
+                //camera->UpdateAngle(Direction::LEFT);
                 break;
             case GLFW_KEY_RIGHT:
-                camera->UpdateAngle(Direction::RIGHT);
+                //camera->UpdateAngle(Direction::RIGHT);
                 break;
         }
     }

@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 
 #define PI                3.1415926535897932384626422832795028841971f
 #define GLM_FORCE_RADIANS
@@ -68,7 +68,7 @@ void Camera::UpdateOrbit(float deltaX, float deltaY, float deltaZ) {
     float radTheta = glm::radians(theta);
     float radPhi = glm::radians(phi);
 
-    cameraBufferObject.cameraPosition = glm::vec4(-radius * glm::sin(radTheta), -radius * glm::cos(radTheta), cameraBufferObject.cameraPosition.z, 1.0f) + glm::vec4(offset, 0.f);
+    cameraBufferObject.cameraPosition = glm::vec4(-radius * glm::sin(radTheta), -radius * glm::cos(radTheta), cameraBufferObject.cameraPosition.z, 1.0f) + glm::vec4(offset.x, offset.y, 0.0, 1.0);
     cameraBufferObject.viewMatrix = glm::lookAt(glm::vec3(cameraBufferObject.cameraPosition), target, glm::vec3(0.0f, 0.0f, 1.0f));
 
     lookAtDir = -glm::vec3(cameraBufferObject.viewMatrix[0][2], cameraBufferObject.viewMatrix[1][2], cameraBufferObject.viewMatrix[2][2]);
@@ -113,10 +113,6 @@ void Camera::UpdatePosition(Direction dir)
     offset += 5.f * vecDir;
     radius = glm::abs(450.f - 5.f * vecDir.y);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
-}
-
-void Camera::UpdateAngle(Direction dir)
-{
 }
 
 void Camera::UpdatePrevBuffer() {
