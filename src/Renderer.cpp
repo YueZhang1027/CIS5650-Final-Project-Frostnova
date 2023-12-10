@@ -309,7 +309,7 @@ void Renderer::CreateFrameResources() {
     cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
 
     // Light grid 
-    lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(512, 512, 64));
+    lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(256, 256, 32));
 
     for (uint32_t i = 0; i < swapChain->GetCount(); i++) {
         // --- Create an image view for each swap chain image ---

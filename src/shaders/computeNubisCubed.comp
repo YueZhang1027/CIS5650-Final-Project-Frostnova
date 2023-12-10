@@ -68,7 +68,7 @@ layout(set = 3, binding = 0) uniform TimeObject {
     float sunPositionZ;
 } time;
 
-layout (set = 5, binding = 0) uniform sampler3D lightGrid;
+layout (set = 4, binding = 0) uniform sampler3D lightGrid;
 
 // structs
 struct VoxelCloudModelingData {
@@ -236,11 +236,6 @@ VoxelCloudDensitySamples GetVoxelCloudDensitySamples(CloudRenderingRaymarchInfo 
     return density_samples;
 }
 
-float Test(CloudRenderingRaymarchInfo inRaymarchInfo, vec3 sampleCoord) {
-    ivec3 coord = ivec3(floor(sampleCoord.x * X_SIZE), floor(sampleCoord.y * X_SIZE), floor(sampleCoord.z * Z_SIZE));
-    return imageLoad(lightGrid, coord).r;
-}
-
 //--------------------------------------------------------
 //					Lighting Functions
 //--------------------------------------------------------
@@ -275,9 +270,8 @@ float GetDensityToSun(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModel
     }
 
     pos += lightDir * inRaymarchInfo.mStepSize;
-    sampleCoord = GetSampleCoord(pos);
-    ivec3 coord = ivec3(floor(sampleCoord.x * X_SIZE), floor(sampleCoord.y * X_SIZE), floor(sampleCoord.z * Z_SIZE));
-    totalDensity += imageLoad(lightGrid, coord).r;
+    sampleCoord = GetSampleCoord(pos);   
+    totalDensity += texture(lightGrid, sampleCoord).r;
 
     return totalDensity;
 }
@@ -294,7 +288,7 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     float profile = sampleData.mProfile;
 
     // Cloud distance
-    float cloud_distance = GetVoxelCloudDistance(samplePosition);
+    float cloud_distance = inRaymarchInfo.mCloudDistance;
 
     // Calculate Density to Sun
     float density_to_sun = GetDensityToSun(inRaymarchInfo, modeling_data, samplePosition, lightDir);
@@ -322,7 +316,7 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     float attenuation_probability = max(Remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25) , primary_attenuation);
      
     // In-scattering 
-    float depth_probability = mix(0.05 + pow(density_Lod, Remap(height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/inRaymarchInfo.mStepSize, 0, 1));
+    float depth_probability = mix(0.05 + pow(density_Lod, Remap(height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/0.5, 0, 1));
     float vertical_probability = pow(Remap(height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8);
     float in_scatter_probability = clamp(depth_probability * vertical_probability, 0, 1);
 
@@ -664,9 +658,9 @@ void main() {
     float accumDensity = ioPixelData.mDensity;
     float transmittance = ioPixelData.mTransmittance;
 
-    //vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
+    vec3 cloudColor = vec3(0.97, 0.86, 0.8) * vec3(max(0.0, transmittance)); 
 
-    vec3 cloudColor = ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
+    //vec3 cloudColor = ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
      
     vec4 finalColor = vec4(mix(bgColor, cloudColor, (1 - ioPixelData.mAlpha)), 1.0f);
 

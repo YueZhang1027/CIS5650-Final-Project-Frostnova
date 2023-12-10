@@ -3,8 +3,8 @@
 
 #define WORKGROUP_SIZE 32
 
-#define X_SIZE 512
-#define Z_SIZE 64
+#define X_SIZE 256
+#define Z_SIZE 32
 
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 
