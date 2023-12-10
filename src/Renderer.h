@@ -12,6 +12,16 @@
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_vulkan.h"
 
+struct UIControlBufferObject {
+    float farclip = 500.f;
+    float transmittance_limit = 0.01f;
+
+    float animate_speed = 10.f;
+    glm::vec3 animate_dir = glm::normalize(glm::vec3(1, 1, 0));
+
+    float godray_exposure = 0.1f;
+};
+
 class Renderer {
 public:
     Renderer() = delete;
@@ -99,4 +109,6 @@ private:
     VkDescriptorPool uiDescriptorPool;
 
     bool mouseOverImGuiWindow = false;
+
+    UIControlBufferObject uiControlBufferObject;
 };

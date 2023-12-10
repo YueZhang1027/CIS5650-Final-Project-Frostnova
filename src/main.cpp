@@ -59,8 +59,6 @@ namespace {
 
     void mouseDownCallback(GLFWwindow* window, int button, int action, int mods) {
         if (renderer->MouseOverImGuiWindow()) {
-            leftMouseDown = false;
-            rightMouseDown = false;
             return;
         }
 
@@ -84,6 +82,10 @@ namespace {
     }
 
     void mouseMoveCallback(GLFWwindow* window, double xPosition, double yPosition) {
+        if (renderer->MouseOverImGuiWindow()) {
+            return;
+        }
+
         if (leftMouseDown) {
             double sensitivity = 0.5;
             float deltaX = static_cast<float>((previousX - xPosition) * sensitivity);
