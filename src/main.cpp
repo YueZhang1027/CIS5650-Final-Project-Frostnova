@@ -58,6 +58,8 @@ namespace {
     double previousY = 0.0;
 
     void mouseDownCallback(GLFWwindow* window, int button, int action, int mods) {
+        renderer->GetIO()->AddMouseButtonEvent(button, action);
+
         if (renderer->MouseOverImGuiWindow()) {
             return;
         }
@@ -82,6 +84,8 @@ namespace {
     }
 
     void mouseMoveCallback(GLFWwindow* window, double xPosition, double yPosition) {
+        renderer->GetIO()->AddMousePosEvent(xPosition, yPosition);
+
         if (renderer->MouseOverImGuiWindow()) {
             return;
         }

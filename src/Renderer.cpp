@@ -6,7 +6,7 @@
 
 #include "Descriptor.h"
 
-#define USE_UI 0
+#define USE_UI 1
 
 static constexpr unsigned int WORKGROUP_SIZE = 32;
 

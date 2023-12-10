@@ -29,6 +29,7 @@ public:
     ~Renderer();
 
     void CreateUI();
+    ImGuiIO* GetIO() const { return io; }
     bool MouseOverImGuiWindow() const { return mouseOverImGuiWindow; }
 
     void CreateCommandPools();
