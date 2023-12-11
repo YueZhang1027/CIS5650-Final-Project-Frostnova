@@ -195,6 +195,8 @@ Here is the visualization of light voxel grid in computation:
 
 ## Third Party Credit
 - [Nubis Presentation](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf)
+- [OpenVDB Official Site](https://www.openvdb.org/)
+- [Camera Reference](https://blog.csdn.net/weixin_42376458/article/details/113797354)
 
 ## Bloopers
 
