@@ -108,10 +108,10 @@ void Camera::UpdatePosition(Direction dir)
         break;
     default: return;
     } 
-    cameraBufferObject.cameraPosition += glm::vec4(5.f * vecDir, 1.0);
-    target += 5.f * vecDir;
-    offset += 5.f * vecDir;
-    radius = glm::abs(450.f - 5.f * vecDir.y);
+    cameraBufferObject.cameraPosition += glm::vec4(stepSize * vecDir, 1.0);
+    target += stepSize * vecDir;
+    offset += stepSize * vecDir;
+    radius = glm::abs(450.f - stepSize * vecDir.y);
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
@@ -150,6 +150,16 @@ void Camera::UpdatePrevBuffer() {
 void Camera::UpdatePixelOffset() {
     cameraParamBufferObject.pixelOffset = (cameraParamBufferObject.pixelOffset + 1) % 16;
 	memcpy(cameraParamBuffer.mappedData, &cameraParamBufferObject, sizeof(CameraParamBufferObject));
+}
+
+float& Camera::getStepSize()
+{
+    return stepSize;
+}
+
+void Camera::setStepSize(float step)
+{
+    stepSize = step;
 }
 
 Camera::~Camera() {

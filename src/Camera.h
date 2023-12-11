@@ -55,6 +55,8 @@ private:
     glm::vec3 right;
     glm::vec3 up;
 
+    float stepSize = 5.0f;
+
 public:
     Camera(Device* device, float aspectRatio);
     ~Camera();
@@ -68,4 +70,7 @@ public:
     void RotateCam(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
+
+    float& getStepSize();
+    void setStepSize(float step);
 };

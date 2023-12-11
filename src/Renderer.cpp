@@ -505,6 +505,8 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
         ImGui::SliderFloat("Sun Angle", &angle, 0.0f, 360.0f);
     }
 
+    ImGui::SliderFloat("Camera Speed", &camera->getStepSize(), 0.0f, 200.f);
+
     ImGui::End();
 
     ImGui::Render();
