@@ -14,6 +14,9 @@ A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and
 
 ![](img/2.png)
 
+[Video demo: Nubis3 cloud](https://youtu.be/DjDdMux2X8Y)
+[Video demo: Nubis2 cloud](https://www.youtube.com/watch?v=Ejm8KpYlGQM)
+
 ## Feature checklist and progress
 - Vulkan pipeline(half from scrach)
     - [x] Compute pipeline (compute the shape of cloud and light raymarching)
@@ -105,7 +108,7 @@ Press left button and move mouse to rotate camera about the center point of the 
 ![](img/pipe.png)
 
 ## Algorithms and Approaches
-### Cloud Modeling
+### 1. Cloud Modeling
 
 The modeling process provides the major inputs for our algorithm. The two inputs are `Modeling Data` that stores the information defining the overall shape of the cloud, which can be loaded from `.vdb` files or sequence of `.tga` files that are sliced from the `.vdb` file, and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. 
 
@@ -133,7 +136,7 @@ Cloud uplift will be affected by the two kinds of effects simultaneously. The cl
 
 ![](img/noise.png)
 
-### Cloud Raymarching
+### 2. Cloud Raymarching
 We followed Nubis 2 solution first to produce a basic ray marching algorithm, here is the psuedo algorithm here:
 ```
 Psuedo algorithm of cloud density and light energy raymarching
@@ -178,7 +181,7 @@ We set a threshold in 200-500 meter to test how the acceleration method improves
 To be specific, we split the cloud calculation into 2 compute shaders, one for clouds closer than the distance threshold, another one for the farther clouds. The first compute shader runs in 1/4 resolution, and stores the density and color information of close clouds in storage textures. Then, in second shader, we ray march the far clouds, and integrate them with information got from storage textures to get the final results. Below is what it is like when only running the close cloud pass.
 ![](img/near.gif)
 
-### Cloud Lighting
+### 3. Cloud Lighting
 Along with the density calculated in every step, the corresponding light energy at this point should be integrated into pixel data.
 
 For light energy calculation at each point, we mainly followed the formulas provided in Nubis slides:
@@ -217,7 +220,7 @@ For more realistic cloud and environment color, we implemented the Preetham Sky 
 ![](img/sky.png)
 ![](img/sky_night.png)
 
-### Post Process - God Ray
+### 4. Post Process - God Ray
 Given the initial image, sample coordinates are generated along a ray cast from the pixel location to the screen-space light position. The light position in screen space is computed by the standard world-view-project transform and is scaled and biased to obtain coordinates in the range [-1, 1]. Successive samples are scaled by both the weight constant and the exponential decay attenuation coefficients for the purpose of parameterizing control of the effect. The separation between samples' density may be adjusted and as a final control factor, the resulting combined color is scaled by a constant attenuation coefficient exposure.
 [Followed the Nvidia tutorial](https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-13-volumetric-light-scattering-post-process)
 ![](img/god_ray.png)
