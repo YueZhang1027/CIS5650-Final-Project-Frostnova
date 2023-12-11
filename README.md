@@ -175,6 +175,9 @@ We set a threshold in 200-500 meter to test how the acceleration method improves
 
 ![](img/upscaling.png)
 
+To be specific, we split the cloud calculation into 2 compute shaders, one for clouds closer than the distance threshold, another one for the farther clouds. The first compute shader runs in 1/4 resolution, and stores the density and color information of close clouds in storage textures. Then, in second shader, we ray march the far clouds, and integrate them with information got from storage textures to get the final results. Below is what it is like when only running the close cloud pass.
+![](img/near.gif)
+
 ### Cloud Lighting
 Along with the density calculated in every step, the corresponding light energy at this point should be integrated into pixel data.
 
@@ -210,8 +213,7 @@ The light voxel grid also makes the convenient calculation of ambient possible, 
 
 #### Physical Sky
 For more realistic cloud and environment color, we implemented the Preetham Sky Model which is our day night cycle, and integrated sky color with clouds as ambient color. Also, the stars at night are added using a 2D noise. The turbidity parameter and sun position can be adjusted in UI to customize the environment light condition.
-[Preetham Paper](http://www.cs.utah.edu/~shirley/papers/sunsky/sunsky.pdf)
-[Reference](https://tw1ddle.github.io/Sky-Shader/)
+[Preetham Paper](http://www.cs.utah.edu/~shirley/papers/sunsky/sunsky.pdf), [Parameter Reference](https://tw1ddle.github.io/Sky-Shader/)
 ![](img/sky.png)
 ![](img/sky_night.png)
 
