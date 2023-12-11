@@ -370,31 +370,30 @@ void Renderer::RecordComputeCommandBuffer() {
 	 	static_cast<uint32_t>((lightVoxelDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
 	 	static_cast<uint32_t>((lightVoxelDims.z)));
 
-        computeNearShader->BindShaderProgram(computeCommandBuffers[i]);
-        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
-        vkCmdDispatch(computeCommandBuffers[i],
-            static_cast<uint32_t>((texDimsPartial.x / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            static_cast<uint32_t>((texDimsPartial.y / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            1);
+    computeNearShader->BindShaderProgram(computeCommandBuffer);
+    const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+    vkCmdDispatch(computeCommandBuffer,
+        static_cast<uint32_t>((texDimsPartial.x / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        static_cast<uint32_t>((texDimsPartial.y / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        1);
 
-        computeFarShader->BindShaderProgram(computeCommandBuffers[i]);
-        vkCmdDispatch(computeCommandBuffers[i],
-            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            1);
+    computeFarShader->BindShaderProgram(computeCommandBuffer);
+    vkCmdDispatch(computeCommandBuffer,
+        static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        1);
 
 /*
-        computeNubisCubedShader->BindShaderProgram(computeCommandBuffers[i]);
-        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
-        vkCmdDispatch(computeCommandBuffers[i],
-            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-            1);
+    computeNubisCubedShader->BindShaderProgram(computeCommandBuffer);
+    const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+    vkCmdDispatch(computeCommandBuffer,
+        static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+        1);
 */
-        // ~ End recording ~
-        if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to record compute command buffer");
-        }
+    // ~ End recording ~
+    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record compute command buffer");
     }
 }
 
