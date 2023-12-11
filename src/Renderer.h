@@ -21,10 +21,13 @@ struct UIControlBufferObject {
     float animate_speed = 10.f;
     glm::vec3 animate_offset = glm::vec3(0.1, 0.1, 0);
 
-    bool enable_godray = true;
-    float godray_exposure = 0.1f;
+    float enable_godray = 1.0f;
+    float godray_exposure = 0.09f;
 
     // TODO: more lighting environment
+    float sky_turbidity = 12.0f;
+
+    int environmentChoise = 0; // 0 = default, 
 };
 
 class Renderer {
@@ -74,7 +77,7 @@ private:
     // --- Shader programs ---
     PostShader* backgroundShader;
     // ReprojectShader* reprojectShader;
-    // ComputeShader* computeShader;
+    ComputeShader* computeShader;
     ComputeNubisCubedShader* computeNubisCubedShader;
     ComputeLightGridShader* computeLightGridShader;
     ComputeNearShader* computeNearShader;
@@ -94,12 +97,11 @@ private:
     Texture* nearCloudColorTexture;
     Texture* nearCloudDensityTexture;
 
-    // Texture* hiResCloudShapeTexture;
-    // Texture* lowResCloudShapeTexture;
-    // Texture* weatherMapTexture;
-    // Texture* curlNoiseTexture;
-
-
+    Texture* hiResCloudShapeTexture;
+    Texture* lowResCloudShapeTexture;
+    Texture* weatherMapTexture;
+    Texture* curlNoiseTexture;
+    
     Texture* modelingDataTexture;
     // Texture* fieldDataTexture;
     Texture* cloudDetailNoiseTexture;
@@ -125,4 +127,6 @@ private:
 
     UIControlBufferObject uiControlBufferObject;
     UniformBuffer uiControlBuffer;
+
+    bool enableGodray = true;
 };

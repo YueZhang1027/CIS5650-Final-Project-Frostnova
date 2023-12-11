@@ -3,7 +3,6 @@
 ComputeShader::ComputeShader(Device* device, SwapChain* swapchain, VkRenderPass* renderPass)
 	: ShaderProgram(device, swapchain, renderPass) {
 	CreateShaderProgram();
-	swapBuffers = false;
 }
 
 void ComputeShader::CreateShaderProgram() {
@@ -17,7 +16,6 @@ void ComputeShader::CreateShaderProgram() {
 
 	// Add the compute dsecriptor set layout you create to this list
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
-		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::cameraDescriptorSetLayout,
 		Descriptor::computeImagesDescriptorSetLayout,
@@ -55,13 +53,10 @@ void ComputeShader::CreateShaderProgram() {
 
 void ComputeShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, swapBuffers ? 1 : 0, 1, &Descriptor::imageCurDescriptorSet, 0, nullptr);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, swapBuffers ? 0 : 1, 1, &Descriptor::imagePrevDescriptorSet, 0, nullptr);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &Descriptor::imageCurDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &Descriptor::cameraDescriptorSet, 0, nullptr);
 
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &Descriptor::computeImagesDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &Descriptor::computeImagesDescriptorSet, 0, nullptr);
 
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 4, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
-
-	swapBuffers = !swapBuffers;
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
 }
