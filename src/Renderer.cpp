@@ -34,7 +34,7 @@ Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Sce
 
     commandBuffers.resize(swapChain->GetCount());
     //RecordCommandBuffers();
-    //RecordComputeCommandBuffer();
+    RecordComputeCommandBuffer();
 }
 
 void Renderer::UpdateUIBuffer() {
@@ -346,7 +346,7 @@ void Renderer::RecordComputeCommandBuffer() {
 
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
     // ~ Start recording ~
@@ -459,14 +459,14 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowSize(ImVec2(500.f, 360.f));
+    ImGui::SetNextWindowSize(ImVec2(500.f, 410.f));
     ImGui::Begin("Control Panel", 0, ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove);
     ImGui::SetWindowFontScale(1);
 
     ImGui::Text("Current Frame Rate: %.1f", ImGui::GetIO().Framerate);
-    ImGui::RadioButton("Nubis 2", &useNubisCubed, 0);
-    ImGui::SameLine();
-    ImGui::RadioButton("Nubis 3", &useNubisCubed, 1);
+    // ImGui::RadioButton("Nubis 2", &useNubisCubed, 0);
+    // ImGui::SameLine();
+    // ImGui::RadioButton("Nubis 3", &useNubisCubed, 1);
 
     ImGui::Separator();
     ImGui::Text("Cloud Parameter");
@@ -586,7 +586,7 @@ void Renderer::UpdateUniformBuffers() {
 }
 
 void Renderer::Frame() {
-    RecordComputeCommandBuffer();
+    // RecordComputeCommandBuffer();
 
     VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

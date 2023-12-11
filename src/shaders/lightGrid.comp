@@ -36,7 +36,7 @@ layout (set = 3, binding = 0) uniform UIParamOvject {
     float tiling_freq;
 
     float animate_speed;
-    vec3 animate_offset;
+    // vec3 animate_offset;
 
     float enable_godray;
     float godray_exposure;
