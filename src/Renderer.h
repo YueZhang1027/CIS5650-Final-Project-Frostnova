@@ -130,4 +130,5 @@ private:
     bool enableGodray = true;
     bool customSunAngle = false;
     float angle = 0.0f;
+    int useNubisCubed = 1;
 };

@@ -27,7 +27,6 @@ Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Sce
     CreateUI();
 //#endif
 
-    // TODO: custom pipeline creation here
     CreateFrameResources();
     CreateModels();
     CreateDescriptors();
@@ -35,7 +34,7 @@ Renderer::Renderer(GLFWwindow* window, Device* device, SwapChain* swapChain, Sce
 
     commandBuffers.resize(swapChain->GetCount());
     //RecordCommandBuffers();
-    RecordComputeCommandBuffer();
+    //RecordComputeCommandBuffer();
 }
 
 void Renderer::UpdateUIBuffer() {
@@ -347,7 +346,7 @@ void Renderer::RecordComputeCommandBuffer() {
 
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
     // ~ Start recording ~
@@ -362,44 +361,48 @@ void Renderer::RecordComputeCommandBuffer() {
     //     static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
     //     static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
     //     1);
-    
-    // computeShader->BindShaderProgram(computeCommandBuffer);
-    // const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
-    // // const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
-    // vkCmdDispatch(computeCommandBuffer,
-    //     static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-    //     static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-    //     1);
 
-    // Light Grid Compute Shader
-    const glm::ivec3 lightVoxelDims(256, 256, 32);
-    computeLightGridShader->BindShaderProgram(computeCommandBuffer);
-    vkCmdDispatch(computeCommandBuffer,
-        static_cast<uint32_t>((lightVoxelDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-	 	static_cast<uint32_t>((lightVoxelDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-	 	static_cast<uint32_t>((lightVoxelDims.z)));
 
-    computeNearShader->BindShaderProgram(computeCommandBuffer);
-    const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
-    vkCmdDispatch(computeCommandBuffer,
-        static_cast<uint32_t>((texDimsPartial.x / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        static_cast<uint32_t>((texDimsPartial.y / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        1);
+    if (useNubisCubed == 1) {
+        // Light Grid Compute Shader
+        const glm::ivec3 lightVoxelDims(256, 256, 32);
+        computeLightGridShader->BindShaderProgram(computeCommandBuffer);
+        vkCmdDispatch(computeCommandBuffer,
+            static_cast<uint32_t>((lightVoxelDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((lightVoxelDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((lightVoxelDims.z)));
 
-    computeFarShader->BindShaderProgram(computeCommandBuffer);
-    vkCmdDispatch(computeCommandBuffer,
-        static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        1);
+        computeNearShader->BindShaderProgram(computeCommandBuffer);
+        const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+        vkCmdDispatch(computeCommandBuffer,
+            static_cast<uint32_t>((texDimsPartial.x / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y / 2 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
 
-/*
-    computeNubisCubedShader->BindShaderProgram(computeCommandBuffer);
-    const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
-    vkCmdDispatch(computeCommandBuffer,
-        static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-        1);
-*/
+        computeFarShader->BindShaderProgram(computeCommandBuffer);
+        vkCmdDispatch(computeCommandBuffer,
+            static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+
+        /*
+            computeNubisCubedShader->BindShaderProgram(computeCommandBuffer);
+            const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+            vkCmdDispatch(computeCommandBuffer,
+                static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+                static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+                1);
+        */
+    } else {
+        computeShader->BindShaderProgram(computeCommandBuffer);
+        const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+        // const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
+        vkCmdDispatch(computeCommandBuffer,
+            static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
+    }
+
     // ~ End recording ~
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record compute command buffer");
@@ -461,6 +464,9 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui::SetWindowFontScale(1);
 
     ImGui::Text("Current Frame Rate: %.1f", ImGui::GetIO().Framerate);
+    ImGui::RadioButton("Nubis 2", &useNubisCubed, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Nubis 3", &useNubisCubed, 1);
 
     ImGui::Separator();
     ImGui::Text("Cloud Parameter");
@@ -499,12 +505,6 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
         ImGui::SliderFloat("Sun Angle", &angle, 0.0f, 360.0f);
     }
 
-    // ImGui::Text("Preset Lighting Choices");
-    // ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
-    // ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
-    // ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
-
-    
     ImGui::End();
 
     ImGui::Render();
@@ -584,6 +584,8 @@ void Renderer::UpdateUniformBuffers() {
 }
 
 void Renderer::Frame() {
+    RecordComputeCommandBuffer();
+
     VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
