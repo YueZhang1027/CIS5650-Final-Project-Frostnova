@@ -2,7 +2,6 @@
 #include "BufferUtils.h"
 
 const float ONE_DAY = 30.0f;
-const float PI = 3.14159265f;
 const float SUN_DISTANCE = 400000.0f;
 
 Scene::Scene(Device* device) : device(device) {
@@ -11,7 +10,7 @@ Scene::Scene(Device* device) : device(device) {
     memcpy(mappedData, &time, sizeof(Time));
 }
 
-void Scene::UpdateTime() {
+void Scene::UpdateTime(bool controlAngle, float customTheta) {
     high_resolution_clock::time_point currentTime = high_resolution_clock::now();
     duration<float> nextDeltaTime = duration_cast<duration<float>>(currentTime - startTime);
     startTime = currentTime;
@@ -20,7 +19,7 @@ void Scene::UpdateTime() {
     time.totalTime += time.deltaTime;
 
     float dayTime = glm::mod(time.totalTime, ONE_DAY);
-    float theta = dayTime * 2.0f * PI / ONE_DAY;
+    theta = controlAngle ? (customTheta * PI / 180.f) : (dayTime * 2.0f * PI / ONE_DAY);
     float phi = 45;
 
     time.sunPositionY = SUN_DISTANCE * cos(theta) * cos(phi);

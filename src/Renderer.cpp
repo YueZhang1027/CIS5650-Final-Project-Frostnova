@@ -492,6 +492,13 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 
     ImGui::SliderFloat("Sky Turbidity", &uiControlBufferObject.sky_turbidity, 1.0f, 20.0f);
 
+    if (ImGui::Checkbox("Custom Control Sun Angle", &customSunAngle)) {
+        if (customSunAngle) angle = scene->GetTheta();
+    }
+    if (customSunAngle) {
+        ImGui::SliderFloat("Sun Angle", &angle, 0.0f, 360.0f);
+    }
+
     // ImGui::Text("Preset Lighting Choices");
     // ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
     // ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
@@ -570,7 +577,7 @@ void Renderer::RecordCommandBuffers() {
 }
 
 void Renderer::UpdateUniformBuffers() {
-    scene->UpdateTime(); // time
+    scene->UpdateTime(customSunAngle, angle); // time
     camera->UpdatePrevBuffer(); // camera prev
     camera->UpdatePixelOffset(); // camera pixel offset
     UpdateUIBuffer(); // ui control parameters

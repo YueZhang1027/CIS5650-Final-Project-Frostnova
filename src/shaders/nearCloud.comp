@@ -86,8 +86,6 @@ layout (set = 5, binding = 0) uniform UIParamOvject {
     float godray_exposure;
 
     float sky_turbidity;
-
-    int environmentChoise; 
 } uiParam;
 
 // structs

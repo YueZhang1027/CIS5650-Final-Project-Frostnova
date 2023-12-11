@@ -13,7 +13,7 @@
 #include "ImGui/imgui_impl_vulkan.h"
 
 struct UIControlBufferObject {
-    float farclip = 500.f;
+    float farclip = 700.f;
     float transmittance_limit = 0.01f;
 
     int cloud_type = 1;
@@ -26,8 +26,6 @@ struct UIControlBufferObject {
     float godray_exposure = 0.09f;
 
     float sky_turbidity = 12.0f;
-
-    // int environmentChoise = 0; // 0 = default, 
 };
 
 class Renderer {
@@ -130,4 +128,6 @@ private:
     UniformBuffer uiControlBuffer;
 
     bool enableGodray = true;
+    bool customSunAngle = false;
+    float angle = 0.0f;
 };

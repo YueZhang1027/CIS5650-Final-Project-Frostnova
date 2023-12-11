@@ -42,8 +42,6 @@ layout (set = 3, binding = 0) uniform UIParamOvject {
     float godray_exposure;
 
     float sky_turbidity;
-
-    int environmentChoise; 
 } uiParam;
 
 float GetVoxelCloudProfileDensity(vec3 coord) {
