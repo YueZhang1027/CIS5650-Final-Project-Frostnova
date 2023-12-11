@@ -175,16 +175,45 @@ We set a threshold in 200-500 meter to test how the acceleration method improves
 
 ![](img/upscaling.png)
 
-### Cloud Light Energy
-Along with the density calculated in every step, the corresponding light energy based on the density accumulated along the ray and at this poing should be integrated into pixel data. Following the forumula that Light Energy = Direct Scattering + Ambient Scattering. We consider the profile density as the probability field of inner scatter and ambient scattering, and use Beer's Law to simulate absorption and outter scatter. 
+### Cloud Lighting
+Along with the density calculated in every step, the corresponding light energy at this point should be integrated into pixel data.
 
-#### Light Voxel
-In the past approahces, we should compute another ray marching from the poing to the lighting position. This would be time costing. We integrate a seperable compute pass in Nubis 3 to generate a 256x256x32 voxel grid of density. The voxel stored the density accumulated from this voxel to the light source. This preserves detail near the surfaces of clouds and offers a more diffuse result after that. This reduced the render time by about 30% - 40% with a perfect result.
+For light energy calculation at each point, we mainly followed the formulas provided in Nubis slides:
+
+Light Energy = Direct Scattering + Ambient Scattering. 
+- Direct Scattering, which represents all of the light energy coming from the sun. 
+- Ambient scattering which represents the light energy coming from the sky and neighboring clouds.
+
+Direct scattering at a given sample point in a cloud as a function of three probabilities: Transmittance, Scattering phase, and multiple scattering. 
+- Transmittance is a measure of the amount of light at a given depth in an optical medium (defined by The Beer-Lambert Law). This calculation is mainly based on the accumulated density from the sampling position to the light source.
+- Scattering phase is a measure of how much of the energy that reached the sample position will scatter toward our eyes, given the view vector and light vector. Light scatters in a cloud as it refracts through tiny water droplets or ice. In clouds light has a tendency to scatter more along the original path, so we use several Henyey Greenstein phase functions to produce an effect that is art directable and somewhat physically based. 
+- Multiple scattering describes light that scatters-in to our view vector after refracting around from multiple encounters with water molecules. We use our dimensional profile as the basis of a probability field to describe where in-scattering happens more frequently because the deeper you are in a cloud, the more potential there is that photons have scattered from their original path. We attenuate this field using another beer-lambert attenuation curve as the multiple scattered light itself is eventually absorbed the more it scatters. We also attenuate this over height to account for the fact that less light scatters into the cloud from below. 
+- Finally, we scale this by a phase function to ensure that it too is directional.
+
+Ambient scattering is much simpler and is mainly based on the dimensional profile.
+
+However, the Nubis team did not provide much information about how to accumulate light energy got from each ray marching step, how to combine light energy with cloud color, and how to add the ambient color on this exactly. Thus, for this part we referenced some formulas used in an [volume cloud article](https://zhuanlan.zhihu.com/p/248406797), as well as defined some calculation formulas by ourselves. We are not sure if it is physical enough, but we tried our best to polish the visualization. 
+
+
+#### Light Density Voxel 
+As mentioned before, for some terms in direct scattering, an significant value is the accumulated density from the sampling position to the light source. In the past approahces in Nubis1&2, we compute another ray marching from the point to the lighting position, which is very time costing. The main improvement in Nubis3 for voxel cloud is to integrate a seperable compute pass to pre-compute a 256x256x32 voxel grid of density. The voxel stored the density accumulated from this voxel to the light source. This reduced the render time by about 30% - 40% with a perfect result.
 
 ![](img/grid.png)
 
 Here is the visualization of light voxel grid in computation:
 ![](img/light_voxel_grid.png)
+
+The light voxel grid also makes the convenient calculation of ambient possible, which was not added in Nubis2:
+| Without ambient | With ambient |
+|---|---|
+|![](img/am_off.png)|![](img/am.png)|
+
+#### Physical Sky
+For more realistic cloud and environment color, we implemented the Preetham Sky Model which is our day night cycle, and integrated sky color with clouds as ambient color. Also, the stars at night are added using a 2D noise. The turbidity parameter and sun position can be adjusted in UI to customize the environment light condition.
+[Preetham Paper](http://www.cs.utah.edu/~shirley/papers/sunsky/sunsky.pdf)
+[Reference](https://tw1ddle.github.io/Sky-Shader/)
+![](img/sky.png)
+![](img/sky_night.png)
 
 ### Post Process - God Ray
 Given the initial image, sample coordinates are generated along a ray cast from the pixel location to the screen-space light position. The light position in screen space is computed by the standard world-view-project transform and is scaled and biased to obtain coordinates in the range [-1, 1]. Successive samples are scaled by both the weight constant and the exponential decay attenuation coefficients for the purpose of parameterizing control of the effect. The separation between samples' density may be adjusted and as a final control factor, the resulting combined color is scaled by a constant attenuation coefficient exposure.
