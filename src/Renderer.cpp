@@ -492,10 +492,10 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 
     ImGui::SliderFloat("Sky Turbidity", &uiControlBufferObject.sky_turbidity, 1.0f, 20.0f);
 
-    ImGui::Text("Preset Lighting Choices");
-    ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
-    ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
-    ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
+    // ImGui::Text("Preset Lighting Choices");
+    // ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
+    // ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
+    // ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
 
     
     ImGui::End();
