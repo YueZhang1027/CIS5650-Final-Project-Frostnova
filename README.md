@@ -95,6 +95,10 @@ Right Arrow - Rotate viewpoint rightward
 ```
 Press left button and move mouse to rotate camera about the center point of the viewport.
 
+## Pipeline
+
+![](img/pipe.png)
+
 ## Algorithms and Approaches
 ### Cloud Modeling
 
