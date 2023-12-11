@@ -115,6 +115,33 @@ void Camera::UpdatePosition(Direction dir)
     memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
 }
 
+void Camera::RotateCam(Direction dir)
+{
+    switch (dir) {
+    case UP:
+        target.z -= 5;
+        break;
+    case DOWN:
+        target.z += 5;
+        break;
+    case LEFT:
+        target.x += 5;
+        break;
+    case RIGHT:
+        target.x -= 5;
+        break;
+    default: return;
+    }
+
+    cameraBufferObject.viewMatrix = glm::lookAt(glm::vec3(cameraBufferObject.cameraPosition), target, glm::vec3(0.0f, 0.0f, 1.0f));
+
+    lookAtDir = -glm::vec3(cameraBufferObject.viewMatrix[0][2], cameraBufferObject.viewMatrix[1][2], cameraBufferObject.viewMatrix[2][2]);
+    right = glm::vec3(cameraBufferObject.viewMatrix[0][0], cameraBufferObject.viewMatrix[1][0], cameraBufferObject.viewMatrix[2][0]);
+    up = glm::vec3(cameraBufferObject.viewMatrix[0][1], cameraBufferObject.viewMatrix[1][1], cameraBufferObject.viewMatrix[2][1]);
+
+    memcpy(camBuffer.mappedData, &cameraBufferObject, sizeof(CameraBufferObject));
+}
+
 void Camera::UpdatePrevBuffer() {
     prevCameraBufferObject.CopyFrom(cameraBufferObject);
     memcpy(prevCamBuffer.mappedData, &prevCameraBufferObject, sizeof(CameraBufferObject));
