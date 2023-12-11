@@ -158,13 +158,26 @@ In constrast to Nubis 2 and other previous raymarching method implemented, we em
 Aside from this, we also read from the SDF generated from Cloud Modeling section to take a big step across the scene outside from the cloud, which increases the cloud sampling hit times.
 
 ![](img/step_size.png)
+
 ##### Temperal Upscaling
+We used `temporal upscaling` and split the render into two passes: High resolution in the distance to prevent aliasing and low resolution up close to improve performance for the most expensive parts of the ray-march. Since raymarching will get a bigger size far away from camera, the cost is mainly acculumated near the camera.
 
+We set a threshold in 200-500 meter to test how the acceleration method improves the two renders in frame rate and in outlook. It shows that the blurriness is tolerable with only 1/4 its origin work load with a 30% - 70% FPS increase differs from cloud distance from camera.
 
+![](img/upscaling.png)
 
 ### Cloud Light Energy
+Along with the density calculated in every step, the corresponding light energy based on the density accumulated along the ray and at this poing should be integrated into pixel data. Following the forumula that Light Energy = Direct Scattering + Ambient Scattering. We consider the profile density as the probability field of inner scatter and ambient scattering, and use Beer's Law to simulate absorption and outter scatter. 
 
 #### Light Voxel
+In the past approahces, we should compute another ray marching from the poing to the lighting position. This would be time costing. We integrate a seperable compute pass in Nubis 3 to generate a 256x256x32 voxel grid of density. The voxel stored the density accumulated from this voxel to the light source. This preserves detail near the surfaces of clouds and offers a more diffuse result after that. This reduced the render time by about 30% - 40% with a perfect result.
+
+![](img/grid.png)
+
+Here is the visualization of light voxel grid in computation:
+![](img/light_voxel_grid.png)
+
+### Post Process - God Ray
 
 ## Presentation Links
 - [Project Pitch](https://docs.google.com/presentation/d/1VOMosNU_EgrPEqzJs6yzk-R75hBktUoOgqSBxD7Gg1A/edit?usp=sharing)
@@ -172,6 +185,9 @@ Aside from this, we also read from the SDF generated from Cloud Modeling section
 - [Milestone 2](https://docs.google.com/presentation/d/1wFTfbSigIz__fvNHlOguQYopze7aLLh6hH-7Y6fjUNI/edit?usp=sharing)
 - [Milestone 3](https://docs.google.com/presentation/d/1-MPiJB4ThtBWCuFQ-zqMigMeZ46IL_kjuE15Q48rOIw/edit?usp=sharing)
 - [Final Presentation](https://docs.google.com/presentation/d/1xSfqEm1FDfcjGJ_dH2waGBWQiV-ixYy3k29Oyn18iyM/edit?usp=sharing)
+
+## Third Party Credit
+- [Nubis Presentation](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf)
 
 ## Bloopers
 
