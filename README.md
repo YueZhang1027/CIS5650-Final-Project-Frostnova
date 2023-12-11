@@ -187,6 +187,9 @@ Here is the visualization of light voxel grid in computation:
 ![](img/light_voxel_grid.png)
 
 ### Post Process - God Ray
+Given the initial image, sample coordinates are generated along a ray cast from the pixel location to the screen-space light position. The light position in screen space is computed by the standard world-view-project transform and is scaled and biased to obtain coordinates in the range [-1, 1]. Successive samples are scaled by both the weight constant and the exponential decay attenuation coefficients for the purpose of parameterizing control of the effect. The separation between samples' density may be adjusted and as a final control factor, the resulting combined color is scaled by a constant attenuation coefficient exposure.
+[Followed the Nvidia tutorial](https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-13-volumetric-light-scattering-post-process)
+![](img/god_ray.png)
 
 ## Presentation Links
 - [Project Pitch](https://docs.google.com/presentation/d/1VOMosNU_EgrPEqzJs6yzk-R75hBktUoOgqSBxD7Gg1A/edit?usp=sharing)
