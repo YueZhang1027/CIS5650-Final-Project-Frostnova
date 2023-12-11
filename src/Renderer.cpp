@@ -459,7 +459,7 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowSize(ImVec2(500.f, 400.f));
+    ImGui::SetNextWindowSize(ImVec2(500.f, 420.f));
     ImGui::Begin("Control Panel", 0, ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove);
     ImGui::SetWindowFontScale(1);
 
