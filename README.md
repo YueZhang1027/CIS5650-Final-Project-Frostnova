@@ -3,7 +3,7 @@ Real-time Volumetric Cloud Rendering in Vulkan
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Final Project**
 * Janet Wang
-* Xinyu Niu
+* Xinyu Niu: [personal website](https://xinyuniu6.wixsite.com/my-site-1)
 * Yue Zhang: [LinkedIn](https://www.linkedin.com/in/yuezhang027/), [personal website](https://yuezhanggame.com/)
 
 ## Project Overview
