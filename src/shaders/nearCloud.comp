@@ -576,7 +576,7 @@ vec3 GetStarColor(vec3 rayDir, vec3 sunDir)
 void GetSkyColor(vec3 rayDir, vec3 sunPosition, inout CloudRenderingPixelData ioPixelData)
 {
     // Rayleigh coefficient
-	float sunfade = 1.0 - clamp(1.0 - exp((sunPosition.y / 450000.0)), 0.0, 1.0);
+	float sunfade = 1.0 - clamp(1.0 - exp((-sunPosition.z / 450000.0)), 0.0, 1.0);
 	float rayleighCoefficient = rayleigh - (1.0 * (1.0 - sunfade));
 	vec3 betaR = totalRayleigh(primaries) * rayleighCoefficient;
 	
