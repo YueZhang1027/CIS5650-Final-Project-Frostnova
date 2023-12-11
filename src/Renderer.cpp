@@ -6,6 +6,8 @@
 
 #include "Descriptor.h"
 
+#include <filesystem>
+
 #define USE_UI 1
 
 static constexpr unsigned int WORKGROUP_SIZE = 32;
@@ -200,6 +202,8 @@ void Renderer::CreatePipelines() {
 void Renderer::CreateFrameResources() {
     imageViews.resize(swapChain->GetCount());
 
+    const std::filesystem::path src_dir = std::filesystem::path(PROJECT_DIRECTORY);
+
     // CREATE CUSTOM TEXTURES
     depthTexture = Image::CreateDepthTexture(device, graphicsCommandPool, swapChain->GetVkExtent()); // Special for depth texture
 
@@ -208,15 +212,15 @@ void Renderer::CreateFrameResources() {
     // imagePrevTexture = Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent());
 
     // Create images to sample in the shader
-    hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
-    lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
-    weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
-    curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
+    hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/hiResCloudShape/hiResClouds ").string().c_str(), glm::ivec3(32, 32, 32));
+    lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/lowResCloudShape/lowResCloud").string().c_str(), glm::ivec3(128, 128, 128));
+    weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, (src_dir / "images/weather.png").string().c_str());
+    curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, (src_dir / "images/curlNoise.png").string().c_str());
 
     // modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
-    modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/modeling_data", glm::ivec3(512, 512, 64));
-    // fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/field_data", glm::ivec3(512, 512, 64));
-    cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/NubisVoxelCloudNoise", glm::ivec3(128, 128, 128));
+    modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example2/tga/modeling_data").string().c_str(), glm::ivec3(512, 512, 64));
+    // fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example2/tga/field_data").string().c_str(), glm::ivec3(512, 512, 64));
+    cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/noise/tga/NubisVoxelCloudNoise").string().c_str(), glm::ivec3(128, 128, 128));
 
     // Light grid 
     lightGridTexture = Image::CreateStorageTexture3D(device, graphicsCommandPool, glm::ivec3(256, 256, 32));
