@@ -7,6 +7,8 @@
 #define PI 3.14159265
 #define ONE_OVER_FOURPI 0.07957747154594767
 
+#define NEAR_THRESHOLD 500.f
+
 // Cloud animation
 // #define CLOUD_ANIMATE_SPEED 10.f
 #define CLOUD_WIND_OFFSET vec2(0.1, 0.1)
@@ -440,6 +442,9 @@ void RaymarchVoxelClouds(Ray ray, vec3 lightDir, inout CloudRenderingPixelData i
     // Intersect with bounding box
     SetRaymarchLimit(ray, raymarch_info);
 
+    // Only Far Cloud
+    raymarch_info.mDistance = max(raymarch_info.mDistance, NEAR_THRESHOLD);
+
     float cos_angle = dot(ray.mDirection, lightDir);
 
     while (ioPixelData.mTransmittance > uiParam.transmittance_limit &&
@@ -664,19 +669,21 @@ void main() {
     Ray ray = GenerateRay(uv);
 
     vec4 nearCloudColor = texture(nearCloudColorTex, uv);
-    vec4 nearCloudDensity = texture(nearCloudDensityTex, uv);
+
+    //nearCloudDensityTex r,g,b = density, transmittance, alpha
+    vec4 nearCloudDensity = texture(nearCloudDensityTex, uv);   
 
     CloudRenderingPixelData ioPixelData;
-    ioPixelData.mDensity = 0.0f;
-    ioPixelData.mTransmittance = 1.0;
-    ioPixelData.mAlpha = 1.0;
-    ioPixelData.mCloudColor = vec3(0);
+    ioPixelData.mDensity = nearCloudDensity.a;
+    ioPixelData.mTransmittance = nearCloudDensity.g;
+    ioPixelData.mAlpha = nearCloudDensity.b;
+    ioPixelData.mCloudColor = nearCloudColor.rgb;
     ioPixelData.mSunDisk = 0.0f;
     ioPixelData.mSkyColor = vec3(0);
 
     GetSkyColor(ray.mDirection, sunPos, ioPixelData);
 
-	// Raymarch
+    // Raymarch
     RaymarchVoxelClouds(ray, sunDir, ioPixelData);    
     float transmittance = ioPixelData.mTransmittance;
     float cloudDensity = clamp(ioPixelData.mDensity, 0, 1);
@@ -692,7 +699,6 @@ void main() {
 
     vec3 cloudColor = ioPixelData.mNight * ioPixelData.mCloudColor * vec3(max(0.0, transmittance));
     vec4 finalColor = vec4(mix(bgColor, cloudColor, (1 - ioPixelData.mAlpha)), 1.0f);
-
 
     imageStore(targetImage, pixel, finalColor);
 }

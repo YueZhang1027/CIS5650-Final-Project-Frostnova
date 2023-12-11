@@ -6,7 +6,7 @@
 #define PI 3.14159265
 #define ONE_OVER_FOURPI 0.07957747154594767
 
-// #define SUN_LOCATION vec3(0.0, 0.0, 0.0)
+#define NEAR_THRESHOLD 500.f
 
 // Cloud animation
 // #define CLOUD_ANIMATE_SPEED 10.f
@@ -470,6 +470,11 @@ void RaymarchVoxelClouds(Ray ray, vec3 lightDir, inout CloudRenderingPixelData i
              }
          }
          raymarch_info.mDistance += raymarch_info.mStepSize;
+
+         if(raymarch_info.mDistance >= NEAR_THRESHOLD)
+         {
+             break;
+         }
     }
 }
 
