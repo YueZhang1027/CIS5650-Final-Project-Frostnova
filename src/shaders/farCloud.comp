@@ -351,7 +351,7 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
 
     vec3 cloudColor = mix(_colA, white, clamp(light_energy * _colorOffset1, 0, 1));
     cloudColor = mix(_colB, cloudColor, clamp(pow(light_energy * _colorOffset2, 3), 0, 1)); 
-    if(ioPixelData.mDensity <= 1.0)
+    if(ioPixelData.mDensity <= 1.0 && ambient_scattering > 0)
     {
         cloudColor = (1 - ambient_scattering) * cloudColor + ambient_scattering * _colB;
     }
