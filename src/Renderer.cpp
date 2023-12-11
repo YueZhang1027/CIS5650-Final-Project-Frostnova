@@ -466,9 +466,9 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui::Text("Cloud Parameter");
     ImGui::SliderFloat("Tiling Frequency", &uiControlBufferObject.tiling_freq, 0.01f, 0.1f);
 
-    ImGui::RadioButton("Parkouring Cloud", &cloudChoice, 0);
+    ImGui::RadioButton("Parkouring Cloud", &uiControlBufferObject.cloud_type, 0);
     ImGui::SameLine();
-    ImGui::RadioButton("Stormbird Cloud", &cloudChoice, 1);
+    ImGui::RadioButton("Stormbird Cloud", &uiControlBufferObject.cloud_type, 1);
 
     ImGui::Separator();
     ImGui::Text("Cloud Animation Parameter");

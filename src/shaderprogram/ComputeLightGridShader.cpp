@@ -18,7 +18,8 @@ void ComputeLightGridShader::CreateShaderProgram() {
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
 		Descriptor::imageStorageDescriptorSetLayout,
 		Descriptor::computeNubisCubedImagesDescriptorSetLayout,
-		Descriptor::sceneDescriptorSetLayout
+		Descriptor::sceneDescriptorSetLayout,
+		Descriptor::uiParamDescriptorSetLayout
 	};
 
 	// Create pipeline layout
@@ -55,4 +56,5 @@ void ComputeLightGridShader::BindShaderProgram(VkCommandBuffer& commandBuffer) {
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &Descriptor::lightGridDescriptorSet, 0, nullptr);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &Descriptor::computeNubisCubedImagesDescriptorSet, 0, nullptr);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &Descriptor::sceneDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &Descriptor::uiParamDescriptorSet, 0, nullptr);
 }

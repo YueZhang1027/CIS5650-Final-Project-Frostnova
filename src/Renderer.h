@@ -16,6 +16,7 @@ struct UIControlBufferObject {
     float farclip = 500.f;
     float transmittance_limit = 0.01f;
 
+    int cloud_type = 1;
     float tiling_freq = 0.05f;
 
     float animate_speed = 10.f;
@@ -24,10 +25,9 @@ struct UIControlBufferObject {
     float enable_godray = 1.0f;
     float godray_exposure = 0.09f;
 
-    // TODO: more lighting environment
     float sky_turbidity = 12.0f;
 
-    int environmentChoise = 0; // 0 = default, 
+    // int environmentChoise = 0; // 0 = default, 
 };
 
 class Renderer {
@@ -130,6 +130,4 @@ private:
     UniformBuffer uiControlBuffer;
 
     bool enableGodray = true;
-    int cloudChoice = 1;
-    int lastCloudChoice = 1;
 };
