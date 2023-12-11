@@ -89,14 +89,26 @@ A - Move left
 D - Move right
 1 - Move up
 2 - Move down
+
+Up Arrow - Rotate viewpoint upward
+Down Arrow - Rotate viewpoint downward
+Left Arrow - Rotate viewpoint leftward
+Right Arrow - Rotate viewpoint rightward
 ```
+Press left button and move mouse to rotate camera about the center point of the viewport.
+
 ## Algorithms and Approaches
 ### Cloud Modeling
-There are two major inputs containing the information to render a cloud. `Modeling Data` stores information defining the overall shape of the cloud, which can be loaded from `.vdb` files and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. Both of the input data files can be generated from a noise generator as a Houdini Asset provided by Nubis3 team.
+
+The modeling process provides the major inputs for our algorithm. The two inputs are `Modeling Data` that stores the information defining the overall shape of the cloud, which can be loaded from `.vdb` files or sequence of `.tga` files that are sliced from the `.vdb` file, and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. 
+
+![](img/modelprocess.png)
+
+The above figure shows the modeling process Nubis3 team used. The first two steps generates data of 3 main channels and the third step saves the generated data into voxel grids and output the data in a `.vdb` file. For loading, we could either choose to read data from the `.vdb` file or slice the `.vdb` file into sequence of `.tga` files. In this project, we focus on the algorithm with modeling data already prepared, reimplementing the data generation steps will be a whole another project. 
 
 #### VDB
 
-VDB is a data structure based on hierarchical voxel grids, which is especially efficient on storing data for model of clouds, smoke, and fire. In this project, we are using `.vdb` generated from the generator mentioned above, which specifically defines 3 channels for purpose of rendering clouds. 
+VDB is a data structure based on hierarchical voxel grids, which is especially efficient on storing data for model of clouds, smoke, and fire. In this project, we are using `.vdb` files provided by Nubis3's team that are generated from their internal tools. 
 
 1. `Dimensional Profile`: Construct overall shape and provide gradiant information. 
 
@@ -110,11 +122,11 @@ We use `OpenVDB` to load the `.vdb` file and stores the values of the 3 channels
 
 #### TGA
 
-As mentioned above, there are two detail forms, `Billow` and `Wispy`. In order to simulate the behavior of the two forms, we use the 3D noises stored in the sequences of `.tga` files. The `.tga` file will be loaded as 3D textures with 4 channels, where each channel stores a specific type of noise. RG solve for `Billow` and BA solve for `Wispy`.
+The detail erosion part needs to consider two kinds of cloud uplift, one is the upward uplift process encountering cold air will be subjected to a kind of reverse squeezing pressure, which formed the upper part of the cloud wave structure, we call it `Billow`; the other is the cloud body to the low-density space emanation to form a wisp of flocculent structure, we call it `Wispy`. 
 
-```
-R：Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
-```
+Cloud uplift will be affected by the two kinds of effects simultaneously. The cloud uplift process is affected by both effects, so the cloud body will be characterized by both `Billow` and `Wispy`. To simulate this effect on the new monolithic cloud, we use a 4-channel 3D texture with a resolution of 128 * 128 * 128 and RGBAs storing R: Low Freq "Curl-Alligator", G: High Freq "Curl-Alligator", B: Low Freq "Alligator", A: High Freq "Alligator". RG solve for `Billow` and BA solve for `Wispy`. The 3D noise are stored in sequence of `.tga` file, which can be generated from a provided Houdini asset.
+
+![](img/noise.png)
 
 ### Cloud Raymarching
 We followed Nubis 2 solution first to produce a basic ray marching algorithm, here is the psuedo algorithm here:
