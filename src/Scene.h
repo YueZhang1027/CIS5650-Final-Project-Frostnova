@@ -5,6 +5,8 @@
 
 #include "Model.h"
 
+#define PI 3.14159265f
+
 using namespace std::chrono;
 
 struct Time {
@@ -22,6 +24,7 @@ private:
     VkBuffer timeBuffer;
     VkDeviceMemory timeBufferMemory;
     Time time;
+    float theta = 0.0f;
     
     void* mappedData;
     high_resolution_clock::time_point startTime = high_resolution_clock::now();
@@ -33,5 +36,6 @@ public:
 
     VkBuffer GetTimeBuffer() const;
 
-    void UpdateTime();
+    void UpdateTime(bool controlAngle = false, float customTheta = 0.0f);
+    float GetTheta() const { return theta * 180.f / PI; }
 };

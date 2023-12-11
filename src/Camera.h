@@ -47,10 +47,15 @@ private:
     UniformBuffer cameraParamBuffer;
 
     float r, theta, phi;
+    float radius;
+    glm::vec3 target;
+    glm::vec3 offset;
 
     glm::vec3 lookAtDir;
     glm::vec3 right;
     glm::vec3 up;
+
+    float stepSize = 5.0f;
 
 public:
     Camera(Device* device, float aspectRatio);
@@ -62,6 +67,10 @@ public:
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
     void UpdatePosition(Direction dir);
+    void RotateCam(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
+
+    float& getStepSize();
+    void setStepSize(float step);
 };

@@ -1,0 +1,103 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+#define WORKGROUP_SIZE 32
+
+#define X_SIZE 256
+#define Z_SIZE 32
+
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, rgba32f) uniform image3D targetImage;
+
+// Modeling NVDF's
+// 512 x 512 x 64
+// R: Dimentional Profile 
+// G: Detail Type
+// B: Density Scale
+// A: SDF
+layout(set = 1, binding = 0) uniform sampler3D modelingParkourTexture;
+layout(set = 1, binding = 1) uniform sampler3D modelingStormBirdTexture;
+
+
+layout(set = 2, binding = 0) uniform TimeObject {
+    float deltaTime;
+    float totalTime;
+    float sunPositionX;
+    float sunPositionY;
+    float sunPositionZ;
+} time;
+
+layout (set = 3, binding = 0) uniform UIParamOvject {
+    float farclip;
+    float transmittance_limit;
+
+    int cloud_type;
+    float tiling_freq;
+
+    float animate_speed;
+    vec3 animate_offset;
+
+    float enable_godray;
+    float godray_exposure;
+
+    float sky_turbidity;
+} uiParam;
+
+float GetVoxelCloudProfileDensity(vec3 coord) {
+
+    vec3 inSamplePosition = vec3(coord.x/X_SIZE, coord.y/X_SIZE, coord.z/Z_SIZE);
+
+    vec4 NVDF;
+    if (uiParam.cloud_type == 0) {
+        NVDF = texture(modelingParkourTexture, inSamplePosition).rgba;
+	} else {
+		NVDF = texture(modelingStormBirdTexture, inSamplePosition).rgba;
+    }
+    float dimensionalProfile = NVDF.r;
+    float densityScale = NVDF.b;
+
+    if (dimensionalProfile > 0.0) {
+        return dimensionalProfile * densityScale;
+    }
+
+    return 0;
+}
+
+bool InBoundary(vec3 coord)
+{
+    return coord.x >= 0 && coord.x < X_SIZE
+        && coord.y >= 0 && coord.y < X_SIZE
+        && coord.z >= 0 && coord.z < Z_SIZE;
+}
+
+void main() {
+    ivec3 coord = ivec3(gl_GlobalInvocationID.xyz);
+    vec4 finalColor = vec4(0, 0, 0, 0);
+
+    // Update Sun
+    vec3 sunPos = vec3(time.sunPositionX, time.sunPositionY, time.sunPositionZ);
+    vec3 sunDir = normalize(sunPos);
+
+    float density = GetVoxelCloudProfileDensity(coord);
+
+    // low lod sample of density for light model
+    finalColor.g = density;
+
+    if(density <= 0)
+    {
+        imageStore(targetImage, coord, finalColor);
+		return;
+    }
+
+    vec3 nextCoord = coord + sunDir;
+
+    while(InBoundary(nextCoord))
+    {
+       density += GetVoxelCloudProfileDensity(nextCoord);
+       nextCoord += sunDir;
+    }
+     
+    finalColor.r = density;
+    imageStore(targetImage, coord, finalColor);
+}

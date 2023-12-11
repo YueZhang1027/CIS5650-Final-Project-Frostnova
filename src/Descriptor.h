@@ -12,6 +12,8 @@ namespace Descriptor {
     void CreateImageDescriptorSetLayout(VkDevice logicalDevice);
     void CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice);
     void CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logicalDevice);
+    void CreateUIParamDescriptorSetLayout(VkDevice logicalDevice);
+
 
     void CreateCameraDescriptorSetLayout(VkDevice logicalDevice);
     void CreateSceneDescriptorSetLayout(VkDevice logicalDevice);
@@ -24,8 +26,9 @@ namespace Descriptor {
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
         Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
     void CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, 
-        Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex);
+        Texture* modelingParkour, Texture* modelingStormBird, Texture* cloudDetailNoiseTex);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
+    void CreateUIParamDescriptorSet(VkDevice logicalDevice, VkBuffer& uiControlBufferObject, VkDeviceSize size);
 
     void CleanUp(VkDevice logicalDevice);
 
@@ -35,6 +38,7 @@ namespace Descriptor {
     extern VkDescriptorSetLayout computeImagesDescriptorSetLayout;
     extern VkDescriptorSetLayout computeNubisCubedImagesDescriptorSetLayout;
     extern VkDescriptorSetLayout sceneDescriptorSetLayout;
+    extern VkDescriptorSetLayout uiParamDescriptorSetLayout;
 
     extern VkDescriptorPool descriptorPool;
 
@@ -43,6 +47,13 @@ namespace Descriptor {
     extern VkDescriptorSet frameDescriptorSet;
     extern VkDescriptorSet computeImagesDescriptorSet;
     extern VkDescriptorSet computeNubisCubedImagesDescriptorSet;
+    extern VkDescriptorSet lightGridDescriptorSet;
+    extern VkDescriptorSet lightGridSamplerDescriptorSet;
+    extern VkDescriptorSet nearCloudColorDescriptorSet;
+    extern VkDescriptorSet nearCloudColorSamplerDescriptorSet;
+    extern VkDescriptorSet nearCloudDensityDescriptorSet;
+    extern VkDescriptorSet nearCloudDensitySamplerDescriptorSet;
+    extern VkDescriptorSet uiParamDescriptorSet;
 
     extern VkDescriptorSet cameraDescriptorSet;
     extern VkDescriptorSet sceneDescriptorSet;

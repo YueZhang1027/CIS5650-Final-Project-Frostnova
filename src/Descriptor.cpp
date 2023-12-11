@@ -9,6 +9,7 @@ VkDescriptorSetLayout Descriptor::imageStorageDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::computeImagesDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::computeNubisCubedImagesDescriptorSetLayout;
 VkDescriptorSetLayout Descriptor::sceneDescriptorSetLayout;
+VkDescriptorSetLayout Descriptor::uiParamDescriptorSetLayout;
 
 VkDescriptorPool Descriptor::descriptorPool;
 
@@ -19,6 +20,13 @@ VkDescriptorSet Descriptor::computeImagesDescriptorSet;
 VkDescriptorSet Descriptor::computeNubisCubedImagesDescriptorSet;
 VkDescriptorSet Descriptor::cameraDescriptorSet;
 VkDescriptorSet Descriptor::sceneDescriptorSet;
+VkDescriptorSet Descriptor::lightGridDescriptorSet;
+VkDescriptorSet Descriptor::lightGridSamplerDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudColorDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudColorSamplerDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudDensityDescriptorSet;
+VkDescriptorSet Descriptor::nearCloudDensitySamplerDescriptorSet;
+VkDescriptorSet Descriptor::uiParamDescriptorSet;
 
 void Descriptor::CreateImageStorageDescriptorSetLayout(VkDevice logicalDevice) {
     // Describe the binding of the descriptor set layout
@@ -111,19 +119,26 @@ void Descriptor::CreateComputeImagesDescriptorSetLayout(VkDevice logicalDevice) 
 }
 
 void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logicalDevice) {
-    VkDescriptorSetLayoutBinding modelingNVDFLayoutBinding = {};
-    modelingNVDFLayoutBinding.binding = 0;
-    modelingNVDFLayoutBinding.descriptorCount = 1;
-    modelingNVDFLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    modelingNVDFLayoutBinding.pImmutableSamplers = nullptr;
-    modelingNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutBinding modelingParkourLayoutBinding = {};
+    modelingParkourLayoutBinding.binding = 0;
+    modelingParkourLayoutBinding.descriptorCount = 1;
+    modelingParkourLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    modelingParkourLayoutBinding.pImmutableSamplers = nullptr;
+    modelingParkourLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayoutBinding fieldNVDFLayoutBinding = {};
-    fieldNVDFLayoutBinding.binding = 1;
-    fieldNVDFLayoutBinding.descriptorCount = 1;
-    fieldNVDFLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    fieldNVDFLayoutBinding.pImmutableSamplers = nullptr;
-    fieldNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutBinding modelingStormBirdLayoutBinding = {};
+    modelingStormBirdLayoutBinding.binding = 1;
+    modelingStormBirdLayoutBinding.descriptorCount = 1;
+    modelingStormBirdLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    modelingStormBirdLayoutBinding.pImmutableSamplers = nullptr;
+    modelingStormBirdLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // VkDescriptorSetLayoutBinding fieldNVDFLayoutBinding = {};
+    // fieldNVDFLayoutBinding.binding = 1;
+    // fieldNVDFLayoutBinding.descriptorCount = 1;
+    // fieldNVDFLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    // fieldNVDFLayoutBinding.pImmutableSamplers = nullptr;
+    // fieldNVDFLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkDescriptorSetLayoutBinding cloudDetailNoiseLayoutBinding = {};
     cloudDetailNoiseLayoutBinding.binding = 2;
@@ -133,8 +148,9 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logic
     cloudDetailNoiseLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
-        modelingNVDFLayoutBinding, // modelingNVDF
-        fieldNVDFLayoutBinding, // fieldNVDF
+        modelingParkourLayoutBinding, // modelingNVDF
+        modelingStormBirdLayoutBinding, // modelingNVDF
+        // fieldNVDFLayoutBinding, // fieldNVDF
         cloudDetailNoiseLayoutBinding, // cloudDetailNoise
     };
 
@@ -146,6 +162,28 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSetLayout(VkDevice logic
 
     if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &computeNubisCubedImagesDescriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor set layout: Compute Nubis Cubed shader images");
+    }
+}
+
+void Descriptor::CreateUIParamDescriptorSetLayout(VkDevice logicalDevice) {
+    // Describe the binding of the descriptor set layout
+    VkDescriptorSetLayoutBinding curLayoutBinding = {};
+    curLayoutBinding.binding = 0;
+    curLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    curLayoutBinding.descriptorCount = 1;
+    curLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    curLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { curLayoutBinding };
+
+    // Create the descriptor set layout
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &uiParamDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor set layout: UI");
     }
 }
 
@@ -215,6 +253,10 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
 
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
 
+        // Light Grid
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+
         // Image samplers: frame
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
 
@@ -227,8 +269,18 @@ void Descriptor::CreateDescriptorPool(VkDevice logicalDevice, Scene* scene) {
         // Time(Scene)Buffer
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, 
 
-        // Compute nubis cubed images: modelingNVDF, fieldNVDF, cloudDetailNoise
+        // UI Control Buffer
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+
+        // Compute nubis cubed images: modelingNVDF, fieldNVDF x 2, cloudDetailNoise
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+
+        // Near Cloud
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
     };
 
     VkDescriptorPoolCreateInfo poolInfo = {};
@@ -276,6 +328,7 @@ void Descriptor::CreateImageStorageDescriptorSet(VkDevice logicalDevice, Texture
 	// Update descriptor sets
 	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
+
 
 void Descriptor::CreateImageDescriptorSet(VkDevice logicalDevice, Texture* texture, VkDescriptorSet& imageDescriptorSet) {
     // Describe the desciptor set
@@ -463,7 +516,7 @@ void Descriptor::CreateComputeImagesDescriptorSet(VkDevice logicalDevice,
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
-void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, Texture* modelingNVDFTex, Texture* fieldNVDFTex, Texture* cloudDetailNoiseTex) {
+void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, Texture* modelingParkour, Texture* modelingStormBird, Texture* cloudDetailNoiseTex) {
     // Describe the desciptor set
     VkDescriptorSetLayout layouts[] = { computeNubisCubedImagesDescriptorSetLayout };
     VkDescriptorSetAllocateInfo allocInfo = {};
@@ -478,15 +531,20 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     }
 
     // Configure the descriptors to refer to buffers
-    VkDescriptorImageInfo modelingNVDFImageInfo = {};
-    modelingNVDFImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    modelingNVDFImageInfo.imageView = modelingNVDFTex->imageView;
-    modelingNVDFImageInfo.sampler = modelingNVDFTex->sampler;
+    VkDescriptorImageInfo modelingParkourImageInfo = {};
+    modelingParkourImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    modelingParkourImageInfo.imageView = modelingParkour->imageView;
+    modelingParkourImageInfo.sampler = modelingParkour->sampler;
 
-    VkDescriptorImageInfo fieldNVDFImageInfo = {};
-    fieldNVDFImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    fieldNVDFImageInfo.imageView = fieldNVDFTex->imageView;
-    fieldNVDFImageInfo.sampler = fieldNVDFTex->sampler;
+    VkDescriptorImageInfo modelingStormBirdImageInfo = {};
+    modelingStormBirdImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    modelingStormBirdImageInfo.imageView = modelingStormBird->imageView;
+    modelingStormBirdImageInfo.sampler = modelingStormBird->sampler;
+
+    // VkDescriptorImageInfo fieldNVDFImageInfo = {};
+    // fieldNVDFImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // fieldNVDFImageInfo.imageView = fieldNVDFTex->imageView;
+    // fieldNVDFImageInfo.sampler = fieldNVDFTex->sampler;
 
     VkDescriptorImageInfo cloudDetailNoiseImageInfo = {};
     cloudDetailNoiseImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -501,7 +559,7 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[0].descriptorCount = 1;
     descriptorWrites[0].pBufferInfo = nullptr;
-    descriptorWrites[0].pImageInfo = &modelingNVDFImageInfo;
+    descriptorWrites[0].pImageInfo = &modelingParkourImageInfo;
     descriptorWrites[0].pTexelBufferView = nullptr;
 
     descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -511,8 +569,18 @@ void Descriptor::CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevi
     descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pBufferInfo = nullptr;
-    descriptorWrites[1].pImageInfo = &fieldNVDFImageInfo;
+    descriptorWrites[1].pImageInfo = &modelingStormBirdImageInfo;
     descriptorWrites[1].pTexelBufferView = nullptr;
+
+    // descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    // descriptorWrites[1].dstSet = computeNubisCubedImagesDescriptorSet;
+    // descriptorWrites[1].dstBinding = 1;
+    // descriptorWrites[1].dstArrayElement = 0;
+    // descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    // descriptorWrites[1].descriptorCount = 1;
+    // descriptorWrites[1].pBufferInfo = nullptr;
+    // descriptorWrites[1].pImageInfo = &fieldNVDFImageInfo;
+    // descriptorWrites[1].pTexelBufferView = nullptr;
 
     descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[2].dstSet = computeNubisCubedImagesDescriptorSet;
@@ -563,11 +631,49 @@ void Descriptor::CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene) 
     vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
+void Descriptor::CreateUIParamDescriptorSet(VkDevice logicalDevice, VkBuffer& uiControlBufferObject, VkDeviceSize size) {
+    // Describe the desciptor set
+	VkDescriptorSetLayout layouts[] = { uiParamDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	// Allocate descriptor sets
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &uiParamDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate descriptor set");
+	}
+
+	// Configure the descriptors to refer to buffers
+	VkDescriptorBufferInfo uiParamBufferInfo = {};
+	uiParamBufferInfo.buffer = uiControlBufferObject;
+	uiParamBufferInfo.offset = 0;
+	uiParamBufferInfo.range = size;
+
+	std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = uiParamDescriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = &uiParamBufferInfo;
+	descriptorWrites[0].pImageInfo = nullptr;
+	descriptorWrites[0].pTexelBufferView = nullptr;
+
+	// Update descriptor sets
+	vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
 void Descriptor::CleanUp(VkDevice logicalDevice) {
     vkDestroyDescriptorSetLayout(logicalDevice, cameraDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, imageStorageDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, imageDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(logicalDevice, sceneDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, computeImagesDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, computeNubisCubedImagesDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(logicalDevice, uiParamDescriptorSetLayout, nullptr);
 
     vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 }

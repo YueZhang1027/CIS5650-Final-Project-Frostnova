@@ -493,6 +493,53 @@ Texture* Image::CreateStorageTexture(Device* device, VkCommandPool commandPool, 
     return texture;
 }
 
+Texture* Image::CreateStorageTextureHalfRes(Device* device, VkCommandPool commandPool, VkExtent2D extent) {
+    Texture* texture = new Texture();
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+    int texWidth = extent.width / 2;
+        int texHeight = extent.height / 2;
+    int texChannels = 4;
+    VkDeviceSize imageSize = texWidth * texHeight * texChannels;
+
+    Image::Create(device,
+        texWidth,
+        texHeight,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture->image,
+        texture->imageMemory);
+
+    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL); // TODO: check new layout
+
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+    texture->sampler = Image::CreateSampler(device);
+
+    return texture;
+}
+
+Texture* Image::CreateStorageTexture3D(Device* device, VkCommandPool commandPool, glm::ivec3 dimension) {
+    Texture* texture = new Texture();
+    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+    Image::Create3D(device,
+        dimension,
+        imageFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        texture->image,
+        texture->imageMemory);
+
+    Image::TransitionLayout(device, commandPool, texture->image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL); // TODO: check new layout
+
+    texture->imageView = Image::CreateView(device, texture->image, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D);
+    texture->sampler = Image::CreateSampler(device);
+
+    return texture;
+}
+
 Texture* Image::CreateTextureFromFile(Device* device, VkCommandPool commandPool, const char* path) {
     Texture* texture = new Texture();
     VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;

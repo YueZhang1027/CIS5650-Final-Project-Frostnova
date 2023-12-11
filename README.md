@@ -7,24 +7,26 @@ Real-time Volumetric Cloud Rendering in Vulkan
 
 A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and render immersive real-time voxel-based clouds*](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf), a highly detailed and immersive voxel-based cloud renderer and modeling approach in SIGGRAPH 2023, Advances in Real-Time Rendering in Games course. In this project, we tried to follow the developing history of Real-Time Volumetric Cloud Generating Solution *Nubis* and its different algorithm in 1, 2 and 3 generation. 
 
-![](img/cloud_short.gif)
-
-![](img/cloud_day_night.gif)
+![](img/2.png)
 
 ## Feature checklist and progress
 - Vulkan pipeline(half from scrach)
     - [x] Compute pipeline (compute the shape of cloud and light raymarching)
     - [x] Graphics pipeline (for post processing and tone mapping, adjusting image storage in compute shader)
-    - [ ] Imgui (trouble here! Building it from scratch and didn't show)
+    - [x] Imgui (trouble here! Building it from scratch and didn't show)
 - Algorithm implementation
     - [x] Nubis1 and Nubis2 raymarching algorithm (project cloud on a faraway atmosphere)
-    - [ ] Nubis3
+    - [x] Nubis3
+        - [x] Cloud density raymarching
+        - [x] Cloud light energy raymarching using voxel grid
+        - [x] Temperal upscaling
 - Cloud modeling and noise texture generation
-    - [ ] Generate profile data
+    - [x] Generate profile data
 - Post processing
+    - [x] God Ray
 - Interaction with scene
-    - [ ] Going through the cloud
-    - [ ] Day night cycle
+    - [x] Going through the cloud
+    - [x] Day night cycle
 
 ## Installation Instructions
 
@@ -85,14 +87,25 @@ A - Move left
 D - Move right
 1 - Move up
 2 - Move down
+
+Up Arrow - Rotate viewpoint upward
+Down Arrow - Rotate viewpoint downward
+Left Arrow - Rotate viewpoint leftward
+Right Arrow - Rotate viewpoint rightward
 ```
+Press left button and move mouse to rotate camera about the center point of the viewport.
+
 ## Algorithms and Approaches
 ### Cloud Modeling
-There are two major inputs containing the information to render a cloud. `Modeling Data` stores information defining the overall shape of the cloud, which can be loaded from `.vdb` files and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. Both of the input data files can be generated from a noise generator as a Houdini Asset provided by Nubis3 team.
+
+The modeling process provides the major inputs for our algorithm. The two inputs are `Modeling Data` that stores the information defining the overall shape of the cloud, which can be loaded from `.vdb` files or sequence of `.tga` files that are sliced from the `.vdb` file, and `Cloud 3D Noise` stores the noises that will be used to calculate the details on the cloud, which can be loaded from sequences of `.tga` files. 
+
+![](img/modelprocess.png)
+
+The above figure shows the modeling process Nubis3 team used. The first two steps generates data of 3 main channels and the third step saves the generated data into voxel grids and output the data in a `.vdb` file. For loading, we could either choose to read data from the `.vdb` file or slice the `.vdb` file into sequence of `.tga` files. In this project, we focus on the algorithm with modeling data already prepared, reimplementing the data generation steps will be a whole another project. 
 
 #### VDB
-
-VDB is a data structure based on hierarchical voxel grids, which is especially efficient on storing data for model of clouds, smoke, and fire. In this project, we are using `.vdb` generated from the generator mentioned above, which specifically defines 3 channels for purpose of rendering clouds. 
+VDB is a data structure based on hierarchical voxel grids, which is especially efficient on storing data for model of clouds, smoke, and fire. In this project, we are using `.vdb` files provided by Nubis3's team that are generated from their internal tools. 
 
 1. `Dimensional Profile`: Construct overall shape and provide gradiant information. 
 
@@ -105,12 +118,11 @@ VDB is a data structure based on hierarchical voxel grids, which is especially e
 We use `OpenVDB` to load the `.vdb` file and stores the values of the 3 channels into 3D textures that will be sent to shaders.
 
 #### TGA
+The detail erosion part needs to consider two kinds of cloud uplift, one is the upward uplift process encountering cold air will be subjected to a kind of reverse squeezing pressure, which formed the upper part of the cloud wave structure, we call it `Billow`; the other is the cloud body to the low-density space emanation to form a wisp of flocculent structure, we call it `Wispy`. 
 
-As mentioned above, there are two detail forms, `Billow` and `Wispy`. In order to simulate the behavior of the two forms, we use the 3D noises stored in the sequences of `.tga` files. The `.tga` file will be loaded as 3D textures with 4 channels, where each channel stores a specific type of noise. RG solve for `Billow` and BA solve for `Wispy`.
+Cloud uplift will be affected by the two kinds of effects simultaneously. The cloud uplift process is affected by both effects, so the cloud body will be characterized by both `Billow` and `Wispy`. To simulate this effect on the new monolithic cloud, we use a 4-channel 3D texture with a resolution of 128 * 128 * 128 and RGBAs storing R: Low Freq "Curl-Alligator", G: High Freq "Curl-Alligator", B: Low Freq "Alligator", A: High Freq "Alligator". RG solve for `Billow` and BA solve for `Wispy`. The 3D noise are stored in sequence of `.tga` file, which can be generated from a provided Houdini asset.
 
-```
-R：Low Freq "Curl-Alligator", G:High Freq "Curl-Alligator", B:Low Freq "Alligator", A: High Freq "Alligator"
-```
+![](img/noise.png)
 
 ### Cloud Raymarching
 We followed Nubis 2 solution first to produce a basic ray marching algorithm, here is the psuedo algorithm here:
@@ -128,17 +140,56 @@ Input: Low-resolution, high-resolution cloud  profile, weather map (coverage, ty
     2.5 Adjust step size based on profile density
 ```
 
-Basically, we use the 3D texture produced from Cloud modeling as the sampler of profile density and detail density. In this project, we 're going to implement two profiling method from Nubis 2 and Nubis 3: Envelope Method and Vertical Profile Method. 
+#### Density
+In each step of the ray passing through the scene, the algorithm would check how it intersects with the voxelized cloud. At each point, the algorithm would cumulate the profile density and detailed density of cloud. These two data are used in generating a outlook of the cloud and accumulating light energy (discussed in Cloud Light Energy section).
 
-![](img/profile.png)
+We use the vdb file produced from cloud modeling section to provide a base profile description of the cloud model we would like to display in the game world. It contains data of the predetermined cloud type and cloud profile density, which acted as the base density of the cloud.  
 
-#### Envelope Method
-The envelope method uses the height of cloud to calculate a packing profile information. All the cloud here is projected to atmosphere, and distributed between inner atmosphere and outer atmosphere. 
+![](img/profile_shape.png)
 
-![](img/envelope.png)
+With the profile defined, we used the 3D texture noise generated by Nubis Noise Generator to simulate the billowy and wispy effect for the cloud, which acts as a value erosion to the basic shape. The type of cloud should be adjusted by different 3D noise in Houdini modeling section.
 
-The algorithm uses the envelope profile to create a general shape and uses wispy noise and billiowy noise as composite noise to erose the detail of the cloud based on the given cloud type map. Here is the image with only profile density used.
+![](img/detail.png)
 
-![](img/profile_sample.png)
+#### Raymarching acceleration
+##### Adaptive Step Size
+In constrast to Nubis 2 and other previous raymarching method implemented, we employed an adaptive stepsize where the size of the steps increased over the distance from the camera from Nubis 3. This resulted in fewer samples farther from camera where less precision was needed.
 
-### Environment
+Aside from this, we also read from the SDF generated from Cloud Modeling section to take a big step across the scene outside from the cloud, which increases the cloud sampling hit times.
+
+![](img/step_size.png)
+
+##### Temperal Upscaling
+We used `temporal upscaling` and split the render into two passes: High resolution in the distance to prevent aliasing and low resolution up close to improve performance for the most expensive parts of the ray-march. Since raymarching will get a bigger size far away from camera, the cost is mainly acculumated near the camera.
+
+We set a threshold in 200-500 meter to test how the acceleration method improves the two renders in frame rate and in outlook. It shows that the blurriness is tolerable with only 1/4 its origin work load with a 30% - 70% FPS increase differs from cloud distance from camera.
+
+![](img/upscaling.png)
+
+### Cloud Light Energy
+Along with the density calculated in every step, the corresponding light energy based on the density accumulated along the ray and at this poing should be integrated into pixel data. Following the forumula that Light Energy = Direct Scattering + Ambient Scattering. We consider the profile density as the probability field of inner scatter and ambient scattering, and use Beer's Law to simulate absorption and outter scatter. 
+
+#### Light Voxel
+In the past approahces, we should compute another ray marching from the poing to the lighting position. This would be time costing. We integrate a seperable compute pass in Nubis 3 to generate a 256x256x32 voxel grid of density. The voxel stored the density accumulated from this voxel to the light source. This preserves detail near the surfaces of clouds and offers a more diffuse result after that. This reduced the render time by about 30% - 40% with a perfect result.
+
+![](img/grid.png)
+
+Here is the visualization of light voxel grid in computation:
+![](img/light_voxel_grid.png)
+
+### Post Process - God Ray
+
+## Presentation Links
+- [Project Pitch](https://docs.google.com/presentation/d/1VOMosNU_EgrPEqzJs6yzk-R75hBktUoOgqSBxD7Gg1A/edit?usp=sharing)
+- [Milestone 1](https://docs.google.com/presentation/d/1872T08XeM0K2bhqGDDScZlcGofVLVaUyqmZzWO_yglI/edit?usp=sharing)
+- [Milestone 2](https://docs.google.com/presentation/d/1wFTfbSigIz__fvNHlOguQYopze7aLLh6hH-7Y6fjUNI/edit?usp=sharing)
+- [Milestone 3](https://docs.google.com/presentation/d/1-MPiJB4ThtBWCuFQ-zqMigMeZ46IL_kjuE15Q48rOIw/edit?usp=sharing)
+- [Final Presentation](https://docs.google.com/presentation/d/1xSfqEm1FDfcjGJ_dH2waGBWQiV-ixYy3k29Oyn18iyM/edit?usp=sharing)
+
+## Third Party Credit
+- [Nubis Presentation](https://advances.realtimerendering.com/s2023/Nubis%20Cubed%20(Advances%202023).pdf)
+
+## Bloopers
+
+![](img/b1.png)
+![](img/b2.png)
