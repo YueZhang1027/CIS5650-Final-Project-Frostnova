@@ -486,12 +486,12 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui::SliderFloat("Max Distance", &uiControlBufferObject.farclip, 0.0f, 5000.0f);
     ImGui::SliderFloat("Transmittance Limit", &uiControlBufferObject.transmittance_limit, 0.0f, 1.0f);
 
-    // ImGui::Separator();
-    // ImGui::Text("Post Processing Parameter");
-    // if (ImGui::Checkbox("Enable Godray", &enableGodray)) {
-    //     uiControlBufferObject.enable_godray = enableGodray ? 1.0f : 0.0f;
-    // }
-    // ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.01f, 0.15f);
+    ImGui::Separator();
+    ImGui::Text("Post Processing Parameter");
+    if (ImGui::Checkbox("Enable Godray", &enableGodray)) {
+         uiControlBufferObject.enable_godray = enableGodray ? 1.0f : 0.0f;
+    }
+    ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.01f, 0.15f);
 
     ImGui::Separator();
     ImGui::Text("Envionment Parameter");

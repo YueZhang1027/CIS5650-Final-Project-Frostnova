@@ -20,7 +20,7 @@ struct UIControlBufferObject {
     float tiling_freq = 0.05f;
 
     float animate_speed = 10.f;
-    glm::vec3 animate_offset = glm::vec3(0.1, 0.1, 0);
+  //  glm::vec3 animate_offset = glm::vec3(0.1, 0.1, 0);
 
     float enable_godray = 1.0f;
     float godray_exposure = 0.09f;

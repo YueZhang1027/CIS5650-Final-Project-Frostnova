@@ -80,7 +80,7 @@ layout (set = 5, binding = 0) uniform UIParamOvject {
     float tiling_freq;
 
     float animate_speed;
-    vec3 animate_offset;
+    //vec3 animate_offset;
 
     float enable_godray;
     float godray_exposure;
@@ -280,6 +280,12 @@ float Remap(float original_value, float original_min, float original_max, float 
     return new_min + (((original_value - original_min) / (original_max - original_min)) * (new_max - new_min));
 }
 
+float GetHeightFractionForPoint(vec3 inPosition, float cloudMin, float cloudMax)
+{
+    float height_fraction = (inPosition.z - cloudMin) / (cloudMax - cloudMin);
+    return clamp(height_fraction, 0, 1);
+}
+
 float GetDensityToSun(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudModelingData modeling_data,
                       vec3 samplePos, vec3 lightDir)
 {
@@ -320,6 +326,9 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     // Calculate Low LOD Density
     float density_Lod = GetDensityLowLOD(sampleCoord);
 
+     // Calculate Height Fraction
+    float height_fraction = GetHeightFractionForPoint(samplePosition, VOXEL_BOUND_MIN.z, VOXEL_BOUND_MAX.z);
+
     // Ambient (Nubis3 slides)
     profile *= exp(-density_to_sun * Remap(cos_angle, 0.0, 0.9, 0.25, Remap(cloud_distance, -128.0, 0.0, 0.05, 0.25)));
     float ambient_scattering = pow(1.0 - profile, 0.5) * exp(-density_to_sun);
@@ -336,10 +345,15 @@ void IntegrateLightEnergy(CloudRenderingRaymarchInfo inRaymarchInfo, VoxelCloudM
     float secondary_attenuation = exp(-density_to_sun * 0.25) * 0.7;
     float attenuation_probability = max(Remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25) , primary_attenuation);     
 
+    // In-scattering 
+    float depth_probability = mix(0.05 + pow(density_Lod, Remap(0.5, 0.3, 0.85, 0.5, 2.0 )), 1.0, clamp(density_to_sun/0.5, 0, 1));
+    float vertical_probability = pow(Remap(0.5, 0.07, 0.14, 0.1, 1.0 ), 0.8);
+    float in_scatter_probability = clamp(depth_probability * vertical_probability, 0, 1);
+
     // Phase probability
     float phase_probability = max(HG(cos_angle, eccentricity), silver_intensity * HG(cos_angle, 0.99 - silver_spread));
 
-    float light_energy = attenuation_probability * phase_probability * brightness;
+    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;
     light_energy = exp(-light_energy * 5);
 
     vec3 white = vec3(1, 1, 1);

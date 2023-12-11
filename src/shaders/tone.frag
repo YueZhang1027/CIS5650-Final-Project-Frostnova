@@ -25,7 +25,7 @@ layout (set = 3, binding = 0) uniform UIParamObject {
     float tiling_freq;
 
     float animate_speed;
-    vec3 animate_offset;
+    //vec3 animate_offset;
 
     float enable_godray;
     float godray_exposure;
@@ -62,7 +62,7 @@ vec4 GodRay()
     vec3 sunDir = normalize(sunPos);
 
     float decay = 0.96;
-    float exposure = mix(0.08, 0.02, clamp(-sunDir.z, 0, 1));
+    float exposure = mix(uiParam.godray_exposure, 0.02, clamp(-sunDir.z, 0, 1));
     float density = 0.2;
     float weight = 0.58767;
 
@@ -92,10 +92,10 @@ vec4 GodRay()
 void main() {
     vec4 sceneCol = texture(texColor, fragTexCoord);
 
-    //if (uiParam.enable_godray == 1.0f) {
+    if (uiParam.enable_godray == 1.0f) {
         vec4 GodRayCol = GodRay();
         sceneCol += GodRayCol * GodRayCol.a;
-    //}
+    }
 
     vec3 col = sceneCol.xyz;
     float whitepoint = 1.0;
