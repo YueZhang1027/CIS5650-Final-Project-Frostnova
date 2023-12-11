@@ -15,6 +15,7 @@ A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and
 ![](img/2.png)
 
 [Video demo: Nubis3 cloud](https://youtu.be/DjDdMux2X8Y)
+
 [Video demo: Nubis2 cloud](https://www.youtube.com/watch?v=Ejm8KpYlGQM)
 
 ## Feature checklist and progress
