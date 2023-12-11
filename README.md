@@ -18,7 +18,7 @@ A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and
 - Vulkan pipeline(half from scrach)
     - [x] Compute pipeline (compute the shape of cloud and light raymarching)
     - [x] Graphics pipeline (for post processing and tone mapping, adjusting image storage in compute shader)
-    - [x] Imgui (trouble here! Building it from scratch and didn't show)
+    - [x] Imgui 
 - Algorithm implementation
     - [x] Nubis1 and Nubis2 raymarching algorithm (project cloud on a faraway atmosphere)
     - [x] Nubis3
