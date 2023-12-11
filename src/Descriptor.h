@@ -26,7 +26,7 @@ namespace Descriptor {
     void CreateComputeImagesDescriptorSet(VkDevice logicalDevice, 
         Texture* lowResTex, Texture* hiResTex, Texture* weatherMap, Texture* curlNoise);
     void CreateComputeNubisCubedImagesDescriptorSet(VkDevice logicalDevice, 
-        Texture* modelingNVDFTex, Texture* cloudDetailNoiseTex);
+        Texture* modelingParkour, Texture* modelingStormBird, Texture* cloudDetailNoiseTex);
     void CreateSceneDescriptorSet(VkDevice logicalDevice, Scene* scene);
     void CreateUIParamDescriptorSet(VkDevice logicalDevice, VkBuffer& uiControlBufferObject, VkDeviceSize size);
 

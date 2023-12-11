@@ -16,10 +16,8 @@ layout (set = 0, binding = 0, rgba32f) uniform image3D targetImage;
 // G: Detail Type
 // B: Density Scale
 // A: SDF
-layout(set = 1, binding = 0) uniform sampler3D modelingNVDFTexture;
-
-layout(set = 1, binding = 1) uniform sampler3D fieldNVDFTexture;
-layout(set = 1, binding = 2) uniform sampler3D cloudDetailNoiseTexture;
+layout(set = 1, binding = 0) uniform sampler3D modelingParkourTexture;
+layout(set = 1, binding = 1) uniform sampler3D modelingStormBirdTexture;
 
 
 layout(set = 2, binding = 0) uniform TimeObject {
@@ -35,7 +33,7 @@ float GetVoxelCloudProfileDensity(vec3 coord) {
 
     vec3 inSamplePosition = vec3(coord.x/X_SIZE, coord.y/X_SIZE, coord.z/Z_SIZE);
 
-    vec4 NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
+    vec4 NVDF = texture(modelingStormBirdTexture, inSamplePosition).rgba;
     float dimensionalProfile = NVDF.r;
     float densityScale = NVDF.b;
 

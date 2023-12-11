@@ -50,7 +50,9 @@ layout(set = 1, binding = 2) uniform CameraParamObject {
 // G: Detail Type
 // B: Density Scale
 // A: SDF
-layout(set = 2, binding = 0) uniform sampler3D modelingNVDFTexture;
+layout(set = 2, binding = 0) uniform sampler3D modelingParkourTexture;
+
+layout(set = 2, binding = 1) uniform sampler3D modelingStormBirdTexture;
 
 // Field Data NVDF
 // 512 x 512 x 64
@@ -58,7 +60,7 @@ layout(set = 2, binding = 0) uniform sampler3D modelingNVDFTexture;
 
 // Detail Noise
 // 128 * 128 * 128
-layout(set = 2, binding = 1) uniform sampler3D cloudDetailNoiseTexture;
+layout(set = 2, binding = 2) uniform sampler3D cloudDetailNoiseTexture;
 
 layout(set = 3, binding = 0) uniform TimeObject {
     float deltaTime;
@@ -175,7 +177,7 @@ vec3 GetSampleCoord(vec3 inSamplePosition) {
 //--------------------------------------------------------
 VoxelCloudModelingData GetVoxelCloudModelingData(vec3 inSamplePosition, float inMipLevel) {
     VoxelCloudModelingData modeling_data;
-    vec4 Modeling_NVDF = texture(modelingNVDFTexture, inSamplePosition).rgba;
+    vec4 Modeling_NVDF = texture(modelingStormBirdTexture, inSamplePosition).rgba;
     modeling_data.mDimensionalProfile = Modeling_NVDF.r;
     modeling_data.mDetailType = Modeling_NVDF.g;
     modeling_data.mDensityScale = Modeling_NVDF.b;

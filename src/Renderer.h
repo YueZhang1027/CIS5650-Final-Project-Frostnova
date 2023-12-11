@@ -102,7 +102,8 @@ private:
     Texture* weatherMapTexture;
     Texture* curlNoiseTexture;
     
-    Texture* modelingDataTexture;
+    Texture* modelingDataParkourTexture;
+    Texture* modelingDataStormBirdTexture;
     // Texture* fieldDataTexture;
     Texture* cloudDetailNoiseTexture;
 
@@ -129,4 +130,6 @@ private:
     UniformBuffer uiControlBuffer;
 
     bool enableGodray = true;
+    int cloudChoice = 1;
+    int lastCloudChoice = 1;
 };
