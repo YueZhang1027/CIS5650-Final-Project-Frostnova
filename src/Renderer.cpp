@@ -172,7 +172,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateImageDescriptorSet(logicalDevice, imageCurTexture, Descriptor::frameDescriptorSet);
 
     // Image - Compute shader images
-    // Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
+    Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
 
     // Image - Compute Nubis Cubed shader images
     Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, cloudDetailNoiseTexture);
@@ -190,7 +190,7 @@ void Renderer::CreateDescriptors() {
 void Renderer::CreatePipelines() {
     backgroundShader = new PostShader(device, swapChain, &renderPass, "shaders/post.vert.spv", "shaders/tone.frag.spv");
     // reprojectShader = new ReprojectShader(device, swapChain, &renderPass);
-    // computeShader = new ComputeShader(device, swapChain, &renderPass);
+    computeShader = new ComputeShader(device, swapChain, &renderPass);
     computeNubisCubedShader = new ComputeNubisCubedShader(device, swapChain, &renderPass);
     computeLightGridShader = new ComputeLightGridShader(device, swapChain, &renderPass);
     computeNearShader = new ComputeNearShader(device, swapChain, &renderPass);
@@ -208,10 +208,10 @@ void Renderer::CreateFrameResources() {
     // imagePrevTexture = Image::CreateStorageTexture(device, graphicsCommandPool, swapChain->GetVkExtent());
 
     // Create images to sample in the shader
-    // hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
-    // lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
-    // weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
-    // curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
+    hiResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/hiResClouds ", glm::ivec3(32, 32, 32));
+    lowResCloudShapeTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/lowResCloud", glm::ivec3(128, 128, 128));
+    weatherMapTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/weather.png");
+    curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, "images/curlNoise.png");
 
     // modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
     modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, "images/modeling_data", glm::ivec3(512, 512, 64));
@@ -289,14 +289,14 @@ void Renderer::DestroyFrameResources() {
     delete imageCurTexture;
     // imagePrevTexture->CleanUp(logicalDevice);
     // delete imagePrevTexture;
-    // hiResCloudShapeTexture->CleanUp(logicalDevice);
-    // delete hiResCloudShapeTexture;
-    // lowResCloudShapeTexture->CleanUp(logicalDevice);
-    // delete lowResCloudShapeTexture;
-    // weatherMapTexture->CleanUp(logicalDevice);
-    // delete weatherMapTexture;
-    // curlNoiseTexture->CleanUp(logicalDevice);
-    // delete curlNoiseTexture;
+    hiResCloudShapeTexture->CleanUp(logicalDevice);
+    delete hiResCloudShapeTexture;
+    lowResCloudShapeTexture->CleanUp(logicalDevice);
+    delete lowResCloudShapeTexture;
+    weatherMapTexture->CleanUp(logicalDevice);
+    delete weatherMapTexture;
+    curlNoiseTexture->CleanUp(logicalDevice);
+    delete curlNoiseTexture;
     modelingDataTexture->CleanUp(logicalDevice);
     delete modelingDataTexture;
     cloudDetailNoiseTexture->CleanUp(logicalDevice);
@@ -354,12 +354,13 @@ void Renderer::RecordComputeCommandBuffer() {
     //     static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
     //     static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
     //     1);
-    // 
-    // computeShader->BindShaderProgram(computeCommandBuffers[i]);
-    // const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
-    // vkCmdDispatch(computeCommandBuffers[i],
-    //     static_cast<uint32_t>((texDimsPartial.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
-    //     static_cast<uint32_t>((texDimsPartial.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+    
+    // computeShader->BindShaderProgram(computeCommandBuffer);
+    // const glm::ivec2 texDimsFull(swapChain->GetVkExtent().width, swapChain->GetVkExtent().height);
+    // // const glm::ivec2 texDimsPartial(swapChain->GetVkExtent().width / 4, swapChain->GetVkExtent().height / 4);
+    // vkCmdDispatch(computeCommandBuffer,
+    //     static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+    //     static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
     //     1);
 
     // Light Grid Compute Shader
@@ -469,11 +470,21 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 
     ImGui::Separator();
     ImGui::Text("Post Processing Parameter");
-    ImGui::Checkbox("Enable Godray", &uiControlBufferObject.enable_godray);
-    ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.0f, 1.0f);
+    if (ImGui::Checkbox("Enable Godray", &enableGodray)) {
+        uiControlBufferObject.enable_godray = enableGodray ? 1.0f : 0.0f;
+    }
+    ImGui::SliderFloat("Godray Exposure", &uiControlBufferObject.godray_exposure, 0.01f, 0.15f);
 
     ImGui::Separator();
     ImGui::Text("Envionment Parameter");
+
+    ImGui::SliderFloat("Sky Turbidity", &uiControlBufferObject.sky_turbidity, 1.0f, 20.0f);
+
+    ImGui::Text("Preset Lighting Choices");
+    ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
+    ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
+    ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
+
     
     ImGui::End();
 
@@ -582,20 +593,8 @@ void Renderer::Frame() {
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
-    // Do all offscreen rendering
-    /*VkSemaphore offscreenSemaphores[] = {swapChain->GetOffscreenFinishedVkSemaphore()};
-    submitInfo.pSignalSemaphores = offscreenSemaphores;
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &offscreenCommandBuffers[(swapBackground ? 1 : 0)];
-
-    if (vkQueueSubmit(device->GetQueue(QueueFlags::Graphics), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to submit draw command buffer");
-    }*/
-
     VkSemaphore signalSemaphores[] = { swapChain->GetRenderFinishedVkSemaphore() };
     submitInfo.signalSemaphoreCount = 1;
-    //submitInfo.pWaitSemaphores = offscreenSemaphores;
     submitInfo.pSignalSemaphores = signalSemaphores;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffers[swapChain->GetIndex()];
@@ -632,8 +631,8 @@ Renderer::~Renderer() {
     delete backgroundShader;
     //reprojectShader->CleanUp();
     //delete reprojectShader;
-    //computeShader->CleanUp();
-    // delete computeShader;
+    computeShader->CleanUp();
+    delete computeShader;
     computeNubisCubedShader->CleanUp();
     delete computeNubisCubedShader;
     computeLightGridShader->CleanUp();

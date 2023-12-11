@@ -28,26 +28,24 @@
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
 layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
-layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
-
-layout(set = 2, binding = 0) uniform CameraObject {
+layout(set = 1, binding = 0) uniform CameraObject {
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } camera;
 
-layout(set = 2, binding = 2) uniform CameraParamObject {
+layout(set = 1, binding = 2) uniform CameraParamObject {
     float halfTanFOV;
     float aspectRatio;
     int pixelOffset;
 } cameraParam;
 
-layout(set = 3, binding = 0) uniform sampler3D profileCloudShape;
-layout(set = 3, binding = 1) uniform sampler3D detailCloudShape;
-layout(set = 3, binding = 2) uniform sampler2D weatherMap;
-layout(set = 3, binding = 3) uniform sampler2D curlNoise;
+layout(set = 2, binding = 0) uniform sampler3D profileCloudShape;
+layout(set = 2, binding = 1) uniform sampler3D detailCloudShape;
+layout(set = 2, binding = 2) uniform sampler2D weatherMap;
+layout(set = 2, binding = 3) uniform sampler2D curlNoise;
 
-layout(set = 4, binding = 0) uniform TimeObject {
+layout(set = 3, binding = 0) uniform TimeObject {
     float deltaTime;
     float totalTime;
     float sunPositionX;
@@ -547,11 +545,11 @@ vec4 GetSkyColor2(vec3 rayDir, vec3 sunPosition, float cloudDensity)
 void main() 
 {
     // Get UV
-    ivec2 dim = imageSize(sourceImage);
+    ivec2 dim = imageSize(targetImage);
 
     // TODO: 1/16 of the pixels after reproject compute shader
-    //ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    //ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4 + ivec2(cameraParam.pixelOffset % 4, cameraParam.pixelOffset / 4);
 
     vec2 uv = vec2(pixel) / dim; 
     Ray ray = GenerateRay(uv);
