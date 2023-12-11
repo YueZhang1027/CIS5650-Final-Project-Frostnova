@@ -177,7 +177,7 @@ void Renderer::CreateDescriptors() {
     Descriptor::CreateComputeImagesDescriptorSet(logicalDevice, lowResCloudShapeTexture, hiResCloudShapeTexture, weatherMapTexture, curlNoiseTexture);
 
     // Image - Compute Nubis Cubed shader images
-    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataTexture, cloudDetailNoiseTexture);
+    Descriptor::CreateComputeNubisCubedImagesDescriptorSet(logicalDevice, modelingDataParkourTexture, modelingDataStormBirdTexture, cloudDetailNoiseTexture);
 
     // Camera
     Descriptor::CreateCameraDescriptorSet(logicalDevice, camera);
@@ -218,7 +218,9 @@ void Renderer::CreateFrameResources() {
     curlNoiseTexture = Image::CreateTextureFromFile(device, graphicsCommandPool, (src_dir / "images/curlNoise.png").string().c_str());
 
     // modelingDataTexture = Image::CreateTextureFromVDBFile(device, graphicsCommandPool, "images/vdb/example2/StormbirdCloud.vdb");
-    modelingDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example2/tga/modeling_data").string().c_str(), glm::ivec3(512, 512, 64));
+    
+    modelingDataParkourTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example1/tga/modeling_data").string().c_str(), glm::ivec3(512, 512, 64));
+    modelingDataStormBirdTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example2/tga/modeling_data").string().c_str(), glm::ivec3(512, 512, 64));
     // fieldDataTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/vdb/example2/tga/field_data").string().c_str(), glm::ivec3(512, 512, 64));
     cloudDetailNoiseTexture = Image::CreateTexture3DFromFiles(device, graphicsCommandPool, (src_dir / "images/noise/tga/NubisVoxelCloudNoise").string().c_str(), glm::ivec3(128, 128, 128));
 
@@ -301,8 +303,10 @@ void Renderer::DestroyFrameResources() {
     delete weatherMapTexture;
     curlNoiseTexture->CleanUp(logicalDevice);
     delete curlNoiseTexture;
-    modelingDataTexture->CleanUp(logicalDevice);
-    delete modelingDataTexture;
+    modelingDataParkourTexture->CleanUp(logicalDevice);
+    delete modelingDataParkourTexture;
+    modelingDataStormBirdTexture->CleanUp(logicalDevice);
+    delete modelingDataStormBirdTexture;
     cloudDetailNoiseTexture->CleanUp(logicalDevice);
 	delete cloudDetailNoiseTexture;
     lightGridTexture->CleanUp(logicalDevice);
@@ -459,6 +463,14 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui::Text("Current Frame Rate: %.1f", ImGui::GetIO().Framerate);
 
     ImGui::Separator();
+    ImGui::Text("Cloud Parameter");
+    ImGui::SliderFloat("Tiling Frequency", &uiControlBufferObject.tiling_freq, 0.01f, 0.1f);
+
+    ImGui::RadioButton("Parkouring Cloud", &uiControlBufferObject.cloud_type, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Stormbird Cloud", &uiControlBufferObject.cloud_type, 1);
+
+    ImGui::Separator();
     ImGui::Text("Cloud Animation Parameter");
     ImGui::SliderFloat("Floating Speed", &uiControlBufferObject.animate_speed, 0.0f, 100.0f);
     // ImGui::SliderFloat3("Floating Offset", &uiControlBufferObject.animate_offset[0], -1000.0f, 1000.0f);
@@ -467,10 +479,6 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
     ImGui::Text("Ray Marching Parameter");
     ImGui::SliderFloat("Max Distance", &uiControlBufferObject.farclip, 0.0f, 5000.0f);
     ImGui::SliderFloat("Transmittance Limit", &uiControlBufferObject.transmittance_limit, 0.0f, 1.0f);
-
-    ImGui::Separator();
-    ImGui::Text("Cloud Sample Parameter");
-    ImGui::SliderFloat("Tiling Frequency", &uiControlBufferObject.tiling_freq, 0.01f, 0.1f);
 
     ImGui::Separator();
     ImGui::Text("Post Processing Parameter");
@@ -484,10 +492,10 @@ void Renderer::RecordCommandBuffer(uint32_t index) {
 
     ImGui::SliderFloat("Sky Turbidity", &uiControlBufferObject.sky_turbidity, 1.0f, 20.0f);
 
-    ImGui::Text("Preset Lighting Choices");
-    ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
-    ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
-    ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
+    // ImGui::Text("Preset Lighting Choices");
+    // ImGui::RadioButton("Default Cycle", &uiControlBufferObject.environmentChoise, 0);
+    // ImGui::RadioButton("Sunrise", &uiControlBufferObject.environmentChoise, 1);
+    // ImGui::RadioButton("Sunset", &uiControlBufferObject.environmentChoise, 2);
 
     
     ImGui::End();

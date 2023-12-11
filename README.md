@@ -15,16 +15,20 @@ A realtime vulkan implementation of [*Nubis3: Methods (and madness) to model and
 - Vulkan pipeline(half from scrach)
     - [x] Compute pipeline (compute the shape of cloud and light raymarching)
     - [x] Graphics pipeline (for post processing and tone mapping, adjusting image storage in compute shader)
-    - [ ] Imgui (trouble here! Building it from scratch and didn't show)
+    - [x] Imgui (trouble here! Building it from scratch and didn't show)
 - Algorithm implementation
     - [x] Nubis1 and Nubis2 raymarching algorithm (project cloud on a faraway atmosphere)
-    - [ ] Nubis3
+    - [x] Nubis3
+        - [x] Cloud density raymarching
+        - [x] Cloud light energy raymarching using voxel grid
+        - [x] Temperal upscaling
 - Cloud modeling and noise texture generation
-    - [ ] Generate profile data
+    - [x] Generate profile data
 - Post processing
+    - [x] God Ray
 - Interaction with scene
-    - [ ] Going through the cloud
-    - [ ] Day night cycle
+    - [x] Going through the cloud
+    - [x] Day night cycle
 
 ## Installation Instructions
 
@@ -146,3 +150,9 @@ The algorithm uses the envelope profile to create a general shape and uses wispy
 - Cloud lighting direction changes following the sun position
 - Cloud tint changes following the sky color
 
+## Presentation Links
+- [Project Pitch](https://docs.google.com/presentation/d/1VOMosNU_EgrPEqzJs6yzk-R75hBktUoOgqSBxD7Gg1A/edit?usp=sharing)
+- [Milestone 1](https://docs.google.com/presentation/d/1872T08XeM0K2bhqGDDScZlcGofVLVaUyqmZzWO_yglI/edit?usp=sharing)
+- [Milestone 2](https://docs.google.com/presentation/d/1wFTfbSigIz__fvNHlOguQYopze7aLLh6hH-7Y6fjUNI/edit?usp=sharing)
+- [Milestone 3](https://docs.google.com/presentation/d/1-MPiJB4ThtBWCuFQ-zqMigMeZ46IL_kjuE15Q48rOIw/edit?usp=sharing)
+- [Final Presentation](https://docs.google.com/presentation/d/1xSfqEm1FDfcjGJ_dH2waGBWQiV-ixYy3k29Oyn18iyM/edit?usp=sharing)
