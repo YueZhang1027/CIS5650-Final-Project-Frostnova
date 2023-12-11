@@ -51,6 +51,9 @@ private:
     glm::vec3 target;
     glm::vec3 offset;
 
+    float upRadius;
+    float upDeg;
+
     glm::vec3 lookAtDir;
     glm::vec3 right;
     glm::vec3 up;
@@ -64,6 +67,7 @@ public:
     VkBuffer GetCameraParamBuffer() const;
     
     void UpdateOrbit(float deltaX, float deltaY, float deltaZ);
+    void RotateCam(Direction dir);
     void UpdatePosition(Direction dir);
     void UpdatePrevBuffer();
     void UpdatePixelOffset();
