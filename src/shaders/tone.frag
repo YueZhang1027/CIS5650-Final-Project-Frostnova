@@ -17,21 +17,20 @@ layout(set = 2, binding = 0) uniform TimeObject {
     float sunPositionZ;
 } time;
 
-layout (set = 3, binding = 0) uniform UIParamOvject {
+layout (set = 3, binding = 0) uniform UIParamObject {
     float farclip;
     float transmittance_limit;
 
+    int cloud_type;
     float tiling_freq;
 
     float animate_speed;
-    vec3 animate_dir;
+    vec3 animate_offset;
 
     float enable_godray;
     float godray_exposure;
 
     float sky_turbidity;
-
-    int envrionment_choice;
 } uiParam;
 
 layout(location = 0) in vec3 fragColor;
@@ -63,7 +62,7 @@ vec4 GodRay()
     vec3 sunDir = normalize(sunPos);
 
     float decay = 0.96;
-    float exposure = mix(uiParam.godray_exposure, 0.02, clamp(-sunDir.z, 0, 1));
+    float exposure = mix(0.08, 0.02, clamp(-sunDir.z, 0, 1));
     float density = 0.2;
     float weight = 0.58767;
 
@@ -93,10 +92,10 @@ vec4 GodRay()
 void main() {
     vec4 sceneCol = texture(texColor, fragTexCoord);
 
-    if (uiParam.enable_godray == 1.0f) {
+    //if (uiParam.enable_godray == 1.0f) {
         vec4 GodRayCol = GodRay();
         sceneCol += GodRayCol * GodRayCol.a;
-    }
+    //}
 
     vec3 col = sceneCol.xyz;
     float whitepoint = 1.0;
