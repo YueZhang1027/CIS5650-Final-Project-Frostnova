@@ -228,6 +228,18 @@ Given the initial image, sample coordinates are generated along a ray cast from 
 [Followed the Nvidia tutorial](https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-13-volumetric-light-scattering-post-process)
 ![](img/god_ray.png)
 
+## Performance Analysis
+### Memory Utilization
+We input 2 cloud's modeling NVDF(512x512x64) and a sampling detail 3D noise(128x128x128) into the memory. Also, we create a light grid intemediate 3D texture to store the lighting voxel density(1/8 of the bounding box of cloud), and two 2D cloud colour and density texture to store the near cloud (1/4 of the full resolution) in temperal upscaling. This takes about 306.6 MB in GPU memory utlization.
+![](img/memory.png)
+
+### Frame Rate Optmization
+We have introduced adaptive step and temperal upscaling in frame rate optmization. Here is the performance analysis of frame rate with different camera distance to cloud for different optimzation option:
+
+![](img/performance.png)
+
+The improvement of these optmizations are pretty impressive! The frame rate inside the cloud with the optmized method is real-time for user to come across. Also, the improvement from these methods and light voxel grid density storage displays in the outlook of the cloud.
+
 ## Presentation Links
 - [Project Pitch](https://docs.google.com/presentation/d/1VOMosNU_EgrPEqzJs6yzk-R75hBktUoOgqSBxD7Gg1A/edit?usp=sharing)
 - [Milestone 1](https://docs.google.com/presentation/d/1872T08XeM0K2bhqGDDScZlcGofVLVaUyqmZzWO_yglI/edit?usp=sharing)
